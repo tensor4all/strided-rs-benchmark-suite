@@ -149,6 +149,20 @@ To format existing log files into a markdown table:
 uv run python scripts/format_results.py data/results/rust_*.log data/results/julia_*.log
 ```
 
+## Benchmark Instances
+
+All instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite (float64, zero-filled tensors).
+
+| Instance | Category | Tensors | Dims | Typical shapes | Steps | log10(FLOPS) | log2(SIZE) |
+|---|---|---:|---|---|---:|---:|---:|
+| `lm_batch_likelihood_brackets_4_4d` | Language model | 84 | 2-4D | 4×4, 4×4×4, 7×1996 | 83 | 8.37 | 18.96 |
+| `lm_batch_likelihood_sentence_3_12d` | Language model | 38 | 2-4D | 11×11, 11×11×11, 100×1100 | 37 | 9.20 | 20.86 |
+| `lm_batch_likelihood_sentence_4_4d` | Language model | 84 | 2-4D | 4×4, 4×4×4, 7×1900 | 83 | 8.46 | 18.89 |
+| `str_matrix_chain_multiplication_100` | Structured | 100 | 2D | 21×478 to 511×507 | 99 | 8.48 | 17.26 |
+
+- **Language model** instances: many small multi-dimensional tensors (3D/4D) with a few large batch tensors. Many contraction steps with tiny GEMM kernels.
+- **Matrix chain** instance: 100 large 2D matrices. Each contraction step is a single large GEMM.
+
 ## Benchmark Results
 
 Environment: Apple Silicon M4. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt).
@@ -157,47 +171,47 @@ Environment: Apple Silicon M4. Median time (ms) of 5 runs (2 warmup). Julia BLAS
 
 #### Strategy: opt_flops
 
-| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia TensorOps (ms) |
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 14.134 | 20.939 | 17.613 | - |
-| lm_batch_likelihood_sentence_3_12d | 49.365 | 58.874 | 55.174 | - |
-| lm_batch_likelihood_sentence_4_4d | 16.608 | 21.036 | 17.004 | - |
-| str_matrix_chain_multiplication_100 | 9.911 | 10.430 | 13.954 | 61.099 |
+| lm_batch_likelihood_brackets_4_4d | 17.095 | 20.838 | 22.229 | - |
+| lm_batch_likelihood_sentence_3_12d | 46.373 | 54.721 | 60.480 | - |
+| lm_batch_likelihood_sentence_4_4d | 19.161 | 21.338 | 23.772 | - |
+| str_matrix_chain_multiplication_100 | 12.342 | 11.034 | 22.643 | 69.159 |
 
 #### Strategy: opt_size
 
-| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia TensorOps (ms) |
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 15.490 | 17.646 | 15.644 | - |
-| lm_batch_likelihood_sentence_3_12d | 47.816 | 55.422 | 47.988 | - |
-| lm_batch_likelihood_sentence_4_4d | 20.463 | 22.999 | 17.155 | - |
-| str_matrix_chain_multiplication_100 | 9.813 | 10.250 | 14.354 | 61.145 |
+| lm_batch_likelihood_brackets_4_4d | 18.555 | 24.583 | 20.815 | - |
+| lm_batch_likelihood_sentence_3_12d | 49.950 | 50.263 | 57.162 | - |
+| lm_batch_likelihood_sentence_4_4d | 28.089 | 30.366 | 23.673 | - |
+| str_matrix_chain_multiplication_100 | 13.504 | 11.686 | 17.961 | 78.007 |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
 #### Strategy: opt_flops
 
-| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia TensorOps (ms) |
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 14.000 | 20.024 | 45.808 | - |
-| lm_batch_likelihood_sentence_3_12d | 43.421 | 41.217 | 38.375 | - |
-| lm_batch_likelihood_sentence_4_4d | 15.916 | 21.165 | 15.349 | - |
-| str_matrix_chain_multiplication_100 | 9.470 | 6.819 | 11.329 | 37.596 |
+| lm_batch_likelihood_brackets_4_4d | 18.376 | 18.238 | 29.350 | - |
+| lm_batch_likelihood_sentence_3_12d | 32.548 | 29.650 | 51.554 | - |
+| lm_batch_likelihood_sentence_4_4d | 20.122 | 17.354 | 27.398 | - |
+| str_matrix_chain_multiplication_100 | 13.066 | 8.344 | 13.286 | 54.623 |
 
 #### Strategy: opt_size
 
-| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia TensorOps (ms) |
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 14.322 | 17.306 | 14.406 | - |
-| lm_batch_likelihood_sentence_3_12d | 44.750 | 38.863 | 35.792 | - |
-| lm_batch_likelihood_sentence_4_4d | 19.526 | 22.703 | 14.963 | - |
-| str_matrix_chain_multiplication_100 | 9.426 | 6.722 | 12.600 | 23.714 |
+| lm_batch_likelihood_brackets_4_4d | 19.082 | 19.607 | 22.566 | - |
+| lm_batch_likelihood_sentence_3_12d | 32.019 | 31.343 | 50.647 | - |
+| lm_batch_likelihood_sentence_4_4d | 26.239 | 25.453 | 27.738 | - |
+| str_matrix_chain_multiplication_100 | 14.530 | 13.461 | 12.797 | 41.531 |
 
 **Notes:**
 - `-` indicates TensorOperations.jl could not handle the instance (output index appears in multiple input tensors, which `ncon` does not support).
-- **Rust opteinsum faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM). **Rust opteinsum blas** uses OpenBLAS via `cblas-sys`.
-- **Rust opteinsum** and **Julia OMEinsum path** use the same pre-computed contraction path for fair comparison.
-- **Julia TensorOps** uses `TensorOperations.ncon` for full network contraction with its own contraction ordering.
+- **strided-rs faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM). **strided-rs OpenBLAS** uses OpenBLAS via `cblas-sys`.
+- **strided-rs** and **OMEinsum.jl** use the same pre-computed contraction path for fair comparison.
+- **TensorOperations.jl** uses `TensorOperations.ncon` for full network contraction with its own contraction ordering.
 
 ## References
 
