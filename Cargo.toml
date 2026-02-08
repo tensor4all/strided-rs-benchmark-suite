@@ -1,0 +1,11 @@
+[package]
+name = "strided-rs-benchmark-suite"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strided-opteinsum = { path = "../strided-rs/strided-opteinsum" }
+strided-view = { path = "../strided-rs/strided-view" }
+num-complex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
