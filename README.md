@@ -22,7 +22,7 @@ strided-rs-benchmark-suite/
     main.rs                 # Rust benchmark runner (strided-opteinsum)
     main.jl                 # Julia benchmark runner (OMEinsum.jl + TensorOperations.jl)
   scripts/
-    run_all.sh              # Run all benchmarks (single-threaded)
+    run_all.sh              # Run all benchmarks (configurable thread count)
     generate_dataset.py     # Filter & export benchmark instances as JSON
     format_results.py       # Parse logs and output markdown tables
   data/
@@ -47,8 +47,14 @@ uv sync
 
 Requires a local clone of [strided-rs](https://github.com/tensor4all/strided-rs) at `../strided-rs`.
 
+Two GEMM backends are supported (mutually exclusive):
+
+- **faer** (default) — pure Rust GEMM via [faer](https://github.com/sarah-quinones/faer-rs)
+- **blas** — links to OpenBLAS (`brew install openblas` on macOS / `apt install libopenblas-dev` on Ubuntu)
+
 ```bash
-cargo build --release
+cargo build --release                                  # faer (default)
+cargo build --release --no-default-features --features blas   # OpenBLAS
 ```
 
 ### Julia
@@ -79,17 +85,24 @@ This selects instances matching laptop-scale criteria and saves JSON metadata to
 ### 2. Run all benchmarks
 
 ```bash
-./scripts/run_all.sh
+./scripts/run_all.sh        # 1 thread (default)
+./scripts/run_all.sh 4      # 4 threads
 ```
 
-Runs Rust and Julia benchmarks with single-threaded execution enforced (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`). Results are saved to `data/results/`.
+Runs Rust (faer + blas) and Julia benchmarks. The argument sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, and `JULIA_NUM_THREADS`. If OpenBLAS is not installed, the blas benchmark is skipped with a warning. Results are saved to `data/results/`.
 
 ### 3. Run individually
 
-**Rust (strided-opteinsum):**
+**Rust (strided-opteinsum, faer backend):**
 
 ```bash
 RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 cargo run --release
+```
+
+**Rust (strided-opteinsum, blas backend):**
+
+```bash
+RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 cargo run --release --no-default-features --features blas
 ```
 
 **Julia (OMEinsum.jl + TensorOperations.jl):**
@@ -123,19 +136,21 @@ Both the original (`format_string`, `shapes`) and converted (`format_string_colm
 
 ## Reproducing Benchmarks
 
-Run all benchmarks (Rust + Julia) with single-threaded execution:
+Run all benchmarks (Rust faer + Rust blas + Julia):
 
 ```bash
-./scripts/run_all.sh
+./scripts/run_all.sh        # 1 thread
+./scripts/run_all.sh 4      # 4 threads
 ```
 
 This script:
 
-1. Sets `OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`
-2. Builds and runs the Rust benchmark (`cargo run --release`)
-3. Runs the Julia benchmark (`julia --project=. src/main.jl`)
-4. Formats results as a markdown table via `scripts/format_results.py`
-5. Saves all outputs to `data/results/` with timestamps
+1. Sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, `JULIA_NUM_THREADS` to the given thread count (default: 1)
+2. Builds and runs the Rust benchmark with the **faer** backend
+3. Builds and runs the Rust benchmark with the **blas** (OpenBLAS) backend (skipped if OpenBLAS is not installed)
+4. Runs the Julia benchmark (`julia --project=. src/main.jl`)
+5. Formats results as a markdown table via `scripts/format_results.py`
+6. Saves all outputs to `data/results/` with timestamps
 
 To format existing log files into a markdown table:
 
@@ -145,31 +160,52 @@ uv run python scripts/format_results.py data/results/rust_*.log data/results/jul
 
 ## Benchmark Results
 
-Environment: Apple Silicon M2, single-threaded. Median time (ms) of 5 runs (2 warmup).
+Environment: Apple Silicon M4. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt).
 
-All benchmarks run with `OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`. BLAS: OpenBLAS (lbt).
+### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
-### Strategy: opt_flops
+#### Strategy: opt_flops
 
-| Instance | Rust strided-opteinsum (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
-|---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 16.726 | 18.263 | 15.659 | - |
-| lm_batch_likelihood_sentence_3_12d | 45.747 | 56.953 | 40.618 | - |
-| lm_batch_likelihood_sentence_4_4d | 18.302 | 19.237 | 17.567 | - |
-| str_matrix_chain_multiplication_100 | 10.139 | 15.786 | 14.521 | 66.578 |
+| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
+|---|---:|---:|---:|---:|---:|
+| lm_batch_likelihood_brackets_4_4d | 14.134 | 20.939 | 17.613 | 12.725 | - |
+| lm_batch_likelihood_sentence_3_12d | 49.365 | 58.874 | 55.174 | 41.329 | - |
+| lm_batch_likelihood_sentence_4_4d | 16.608 | 21.036 | 17.004 | 15.532 | - |
+| str_matrix_chain_multiplication_100 | 9.911 | 10.430 | 13.954 | 13.221 | 61.099 |
 
-### Strategy: opt_size
+#### Strategy: opt_size
 
-| Instance | Rust strided-opteinsum (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
-|---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 17.404 | 18.482 | 14.636 | - |
-| lm_batch_likelihood_sentence_3_12d | 50.000 | 47.817 | 41.130 | - |
-| lm_batch_likelihood_sentence_4_4d | 24.120 | 19.103 | 17.800 | - |
-| str_matrix_chain_multiplication_100 | 10.593 | 14.444 | 15.221 | 65.774 |
+| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
+|---|---:|---:|---:|---:|---:|
+| lm_batch_likelihood_brackets_4_4d | 15.490 | 17.646 | 15.644 | 13.745 | - |
+| lm_batch_likelihood_sentence_3_12d | 47.816 | 55.422 | 47.988 | 41.215 | - |
+| lm_batch_likelihood_sentence_4_4d | 20.463 | 22.999 | 17.155 | 15.129 | - |
+| str_matrix_chain_multiplication_100 | 9.813 | 10.250 | 14.354 | 12.300 | 61.145 |
+
+### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
+
+#### Strategy: opt_flops
+
+| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
+|---|---:|---:|---:|---:|---:|
+| lm_batch_likelihood_brackets_4_4d | 14.000 | 20.024 | 45.808 | 17.376 | - |
+| lm_batch_likelihood_sentence_3_12d | 43.421 | 41.217 | 38.375 | 35.414 | - |
+| lm_batch_likelihood_sentence_4_4d | 15.916 | 21.165 | 15.349 | 20.841 | - |
+| str_matrix_chain_multiplication_100 | 9.470 | 6.819 | 11.329 | 10.790 | 37.596 |
+
+#### Strategy: opt_size
+
+| Instance | Rust opteinsum faer (ms) | Rust opteinsum blas (ms) | Julia OMEinsum path (ms) | Julia OMEinsum opt (ms) | Julia TensorOps (ms) |
+|---|---:|---:|---:|---:|---:|
+| lm_batch_likelihood_brackets_4_4d | 14.322 | 17.306 | 14.406 | 13.973 | - |
+| lm_batch_likelihood_sentence_3_12d | 44.750 | 38.863 | 35.792 | 29.155 | - |
+| lm_batch_likelihood_sentence_4_4d | 19.526 | 22.703 | 14.963 | 15.647 | - |
+| str_matrix_chain_multiplication_100 | 9.426 | 6.722 | 12.600 | 9.469 | 23.714 |
 
 **Notes:**
 - `-` indicates TensorOperations.jl could not handle the instance (output index appears in multiple input tensors, which `ncon` does not support).
-- **Rust strided-opteinsum** and **Julia OMEinsum path** use the same pre-computed contraction path for fair comparison.
+- **Rust opteinsum faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM). **Rust opteinsum blas** uses OpenBLAS via `cblas-sys`.
+- **Rust opteinsum** and **Julia OMEinsum path** use the same pre-computed contraction path for fair comparison.
 - **Julia OMEinsum opt** uses OMEinsum's `TreeSA` optimizer (optimization time excluded from measurement).
 - **Julia TensorOps** uses `TensorOperations.ncon` for full network contraction with its own contraction ordering.
 

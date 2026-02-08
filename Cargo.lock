@@ -69,6 +69,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
+name = "cblas-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8354a31ad0d37f735e74c1973343c99dde4461ea8626a2b8d4fea9e06b987255"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1145,8 +1154,10 @@ dependencies = [
 name = "strided-einsum2"
 version = "0.1.0"
 dependencies = [
+ "cblas-sys",
  "faer",
  "faer-traits",
+ "num-complex",
  "num-traits",
  "strided-kernel",
  "strided-view",
