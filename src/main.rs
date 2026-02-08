@@ -146,8 +146,8 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Duration 
         durations.push(elapsed);
     }
 
-    let total_nanos: u128 = durations.iter().map(|d| d.as_nanos()).sum();
-    Duration::from_nanos((total_nanos / durations.len() as u128) as u64)
+    durations.sort();
+    durations[durations.len() / 2]
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +184,9 @@ fn main() {
     let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/instances");
     let instances = load_instances();
 
+    let rayon_threads = std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into());
+    let omp_threads = std::env::var("OMP_NUM_THREADS").unwrap_or_else(|_| "unset".into());
+
     println!("strided-opteinsum benchmark suite");
     println!("==================================");
     println!(
@@ -191,6 +194,8 @@ fn main() {
         instances.len(),
         data_dir.display()
     );
+    println!("RAYON_NUM_THREADS={rayon_threads}, OMP_NUM_THREADS={omp_threads}");
+    println!("Timing: median of 5 runs (2 warmup)");
 
     let strategies: &[(&str, fn(&PathInfo) -> &PathMeta)] = &[
         ("opt_flops", |p| &p.opt_flops),
@@ -202,20 +207,20 @@ fn main() {
         println!("Strategy: {strategy_name}");
         println!(
             "{:<50} {:>8} {:>10} {:>12} {:>12}",
-            "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Time (ms)"
+            "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)"
         );
         println!("{}", "-".repeat(96));
 
         for instance in &instances {
             let path_meta = get_path(&instance.paths);
-            let avg = run_instance(instance, path_meta);
+            let median = run_instance(instance, path_meta);
             println!(
                 "{:<50} {:>8} {:>10.2} {:>12.2} {:>12.3}",
                 instance.name,
                 instance.num_tensors,
                 path_meta.log10_flops,
                 path_meta.log2_size,
-                avg.as_secs_f64() * 1e3,
+                median.as_secs_f64() * 1e3,
             );
         }
     }

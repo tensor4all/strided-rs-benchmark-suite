@@ -1,6 +1,9 @@
 using Printf
+using Statistics: median
+using LinearAlgebra: BLAS
 using OMEinsum
 using OMEinsumContractionOrders
+using TensorOperations
 using JSON
 
 # ---------------------------------------------------------------------------
@@ -17,7 +20,7 @@ function parse_format_string(s::AbstractString)
 end
 
 # ---------------------------------------------------------------------------
-# Pre-computed path execution
+# OMEinsum: Pre-computed path execution
 # ---------------------------------------------------------------------------
 
 """
@@ -68,7 +71,7 @@ function run_with_path(tensors, input_indices, output_indices, path)
 end
 
 # ---------------------------------------------------------------------------
-# OMEinsum optimizer execution
+# OMEinsum: optimizer execution
 # ---------------------------------------------------------------------------
 
 function run_with_optimizer(tensors, input_indices, output_indices, shapes)
@@ -87,6 +90,57 @@ function run_with_optimizer(tensors, input_indices, output_indices, shapes)
 end
 
 # ---------------------------------------------------------------------------
+# TensorOperations: Full network contraction via ncon
+# ---------------------------------------------------------------------------
+
+"""
+Execute einsum using TensorOperations.ncon for the full tensor network.
+Contraction order is determined by TensorOperations internally.
+"""
+function run_with_tensorops_ncon(tensors, input_indices, output_indices)
+    char_to_int = Dict{Char,Int}()
+
+    # Output indices get negative labels (-1, -2, ...)
+    for (k, c) in enumerate(output_indices)
+        char_to_int[c] = -k
+    end
+
+    # Contracted indices get positive labels
+    # Indices appearing in only one tensor and not in output get extra negative labels
+    pos = 0
+    extra_neg = length(output_indices)
+    extra_output = Char[]
+
+    for idx in input_indices
+        for c in idx
+            if !haskey(char_to_int, c)
+                count = sum(c in other_idx for other_idx in input_indices)
+                if count >= 2
+                    pos += 1
+                    char_to_int[c] = pos
+                else
+                    extra_neg += 1
+                    char_to_int[c] = -extra_neg
+                    push!(extra_output, c)
+                end
+            end
+        end
+    end
+
+    network = [Int[char_to_int[c] for c in idx] for idx in input_indices]
+
+    result = ncon(tensors, network)
+
+    # Sum over extra dimensions (indices in only one tensor, not in output)
+    if !isempty(extra_output)
+        extra_dims = Tuple(length(output_indices) + k for k in 1:length(extra_output))
+        result = dropdims(sum(result, dims=extra_dims), dims=extra_dims)
+    end
+
+    return result
+end
+
+# ---------------------------------------------------------------------------
 # Benchmark runner
 # ---------------------------------------------------------------------------
 
@@ -101,8 +155,9 @@ function create_tensors(shapes, dtype::AbstractString)
 end
 
 function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
-    format_str = instance["format_string_colmajor"]
-    shapes = [Tuple(s) for s in instance["shapes_colmajor"]]
+    # Julia is column-major natively: use original format_string and shapes
+    format_str = instance["format_string"]
+    shapes = [Tuple(s) for s in instance["shapes"]]
     dtype = instance["dtype"]
     path_meta = instance["paths"][strategy]
     path = [Tuple(p) for p in path_meta["path"]]
@@ -110,12 +165,12 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
     input_indices, output_indices = parse_format_string(format_str)
     @assert length(input_indices) == instance["num_tensors"]
 
-    run_fn = if mode == :path
+    run_fn = if mode == :omeinsum_path
         () -> begin
             tensors = create_tensors(shapes, dtype)
             run_with_path(tensors, input_indices, output_indices, path)
         end
-    elseif mode == :optimizer
+    elseif mode == :omeinsum_opt
         # Pre-optimize once (optimization cost not included in timing)
         code = DynamicEinCode(input_indices, output_indices)
         size_dict = Dict{Char,Int}()
@@ -129,13 +184,22 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
             tensors = create_tensors(shapes, dtype)
             opt_code(tensors...)
         end
+    elseif mode == :tensorops
+        () -> begin
+            tensors = create_tensors(shapes, dtype)
+            run_with_tensorops_ncon(tensors, input_indices, output_indices)
+        end
     else
         error("unknown mode: $mode")
     end
 
     # Warmup
-    for _ in 1:2
-        run_fn()
+    try
+        for _ in 1:2
+            run_fn()
+        end
+    catch e
+        return nothing, string(e)
     end
 
     # Timed runs
@@ -148,7 +212,7 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
         push!(durations, elapsed)
     end
 
-    return sum(durations) / length(durations)
+    return median(durations), nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -165,30 +229,43 @@ function main()
     data_dir = joinpath(@__DIR__, "..", "data", "instances")
     instances = load_instances()
 
-    println("OMEinsum.jl benchmark suite")
+    println("Julia einsum benchmark suite")
     println("==================================")
     println("Loaded $(length(instances)) instances from $data_dir")
+    println("Julia threads: $(Threads.nthreads()), BLAS threads: $(BLAS.get_num_threads()), BLAS vendor: $(BLAS.vendor())")
+    println("OMP_NUM_THREADS=$(get(ENV, "OMP_NUM_THREADS", "unset")), JULIA_NUM_THREADS=$(get(ENV, "JULIA_NUM_THREADS", "unset"))")
+    println("Timing: median of 5 runs (2 warmup)")
 
     strategies = ["opt_flops", "opt_size"]
-    modes = [:path, :optimizer]
+    modes = [:omeinsum_path, :omeinsum_opt, :tensorops]
 
     for mode in modes
         for strategy in strategies
             println()
             println("Mode: $mode / Strategy: $strategy")
             @printf("%-50s %8s %10s %12s %12s\n",
-                "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Time (ms)")
+                "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)")
             println("-"^96)
 
             for instance in instances
                 path_meta = instance["paths"][strategy]
-                avg_ms = benchmark_instance(instance, strategy, mode)
-                @printf("%-50s %8d %10.2f %12.2f %12.3f\n",
-                    instance["name"],
-                    instance["num_tensors"],
-                    path_meta["log10_flops"],
-                    path_meta["log2_size"],
-                    avg_ms)
+                median_ms, err = benchmark_instance(instance, strategy, mode)
+                if median_ms === nothing
+                    @printf("%-50s %8d %10.2f %12.2f %12s\n",
+                        instance["name"],
+                        instance["num_tensors"],
+                        path_meta["log10_flops"],
+                        path_meta["log2_size"],
+                        "SKIP")
+                    println("  reason: $err")
+                else
+                    @printf("%-50s %8d %10.2f %12.2f %12.3f\n",
+                        instance["name"],
+                        instance["num_tensors"],
+                        path_meta["log10_flops"],
+                        path_meta["log2_size"],
+                        median_ms)
+                end
             end
         end
     end
