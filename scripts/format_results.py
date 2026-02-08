@@ -88,13 +88,16 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
     strategies = sorted(set(strat for _, strat, _ in all_results.keys()))
     modes = sorted(set(mode for _, _, mode in all_results.keys()))
 
+    # Modes to exclude from output (unfair comparison: different contraction path)
+    excluded_modes = {"omeinsum_opt"}
+    modes = [m for m in modes if m not in excluded_modes]
+
     # Determine column order
     preferred_order = [
         "strided-opteinsum(faer)",
         "strided-opteinsum(blas)",
         "strided-opteinsum",
         "omeinsum_path",
-        "omeinsum_opt",
         "tensorops",
     ]
     mode_order = []
@@ -106,12 +109,12 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
             mode_order.append(m)
 
     mode_labels = {
-        "strided-opteinsum": "Rust strided-opteinsum (ms)",
-        "strided-opteinsum(faer)": "Rust opteinsum faer (ms)",
-        "strided-opteinsum(blas)": "Rust opteinsum blas (ms)",
-        "omeinsum_path": "Julia OMEinsum path (ms)",
-        "omeinsum_opt": "Julia OMEinsum opt (ms)",
-        "tensorops": "Julia TensorOps (ms)",
+        "strided-opteinsum": "strided-rs (ms)",
+        "strided-opteinsum(faer)": "strided-rs faer (ms)",
+        "strided-opteinsum(blas)": "strided-rs OpenBLAS (ms)",
+        "omeinsum_path": "OMEinsum.jl OpenBLAS (ms)",
+        "omeinsum_opt": "OMEinsum.jl opt (ms)",
+        "tensorops": "TensorOperations.jl (ms)",
     }
 
     lines = []
