@@ -10,14 +10,20 @@ import re
 import sys
 
 
-def parse_log(filepath: str) -> dict[str, dict[str, float]]:
-    """Parse a benchmark log and return {(instance, strategy, mode): median_ms}."""
+def parse_log(filepath: str) -> tuple[dict[tuple[str, str, str], float], dict[str, str]]:
+    """Parse a benchmark log and return (results, metadata).
+
+    results: {(instance, strategy, mode): median_ms}
+    metadata: thread environment variables found in the log
+    """
     results: dict[tuple[str, str, str], float] = {}
     current_mode = None
     current_strategy = None
+    metadata: dict[str, str] = {}
 
     # Detect engine from header
     engine = None
+    rust_backend = None
 
     with open(filepath) as f:
         for line in f:
@@ -29,12 +35,25 @@ def parse_log(filepath: str) -> dict[str, dict[str, float]]:
             elif "julia einsum" in line.lower() and engine is None:
                 engine = "julia"
 
+            # Detect Rust backend variant: "Backend: strided-opteinsum(faer)" or "Backend: strided-opteinsum"
+            m = re.match(r"^Backend:\s+(.+)", line)
+            if m and rust_backend is None:
+                rust_backend = m.group(1).strip()
+
+            # Extract thread settings from log lines like:
+            #   "RAYON_NUM_THREADS=4, OMP_NUM_THREADS=4"
+            #   "OMP_NUM_THREADS=4, JULIA_NUM_THREADS=4"
+            for var in ("OMP_NUM_THREADS", "RAYON_NUM_THREADS", "JULIA_NUM_THREADS"):
+                m2 = re.search(rf"{var}=(\d+)", line)
+                if m2 and var not in metadata:
+                    metadata[var] = m2.group(1)
+
             # Parse strategy header
             # Rust: "Strategy: opt_flops"
             m = re.match(r"^Strategy:\s+(\w+)", line)
             if m:
                 current_strategy = m.group(1)
-                current_mode = "strided-opteinsum"
+                current_mode = rust_backend or "strided-opteinsum"
                 continue
 
             # Julia: "Mode: omeinsum_path / Strategy: opt_flops"
@@ -59,10 +78,10 @@ def parse_log(filepath: str) -> dict[str, dict[str, float]]:
                 except (ValueError, IndexError):
                     continue
 
-    return results
+    return results, metadata
 
 
-def format_markdown_table(all_results: dict) -> str:
+def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
     """Format results as a markdown table grouped by strategy."""
     # Collect all instances and modes
     instances = sorted(set(name for name, _, _ in all_results.keys()))
@@ -70,13 +89,16 @@ def format_markdown_table(all_results: dict) -> str:
     modes = sorted(set(mode for _, _, mode in all_results.keys()))
 
     # Determine column order
-    mode_order = []
-    for m in [
+    preferred_order = [
+        "strided-opteinsum(faer)",
+        "strided-opteinsum(blas)",
         "strided-opteinsum",
         "omeinsum_path",
         "omeinsum_opt",
         "tensorops",
-    ]:
+    ]
+    mode_order = []
+    for m in preferred_order:
         if m in modes:
             mode_order.append(m)
     for m in modes:
@@ -85,6 +107,8 @@ def format_markdown_table(all_results: dict) -> str:
 
     mode_labels = {
         "strided-opteinsum": "Rust strided-opteinsum (ms)",
+        "strided-opteinsum(faer)": "Rust opteinsum faer (ms)",
+        "strided-opteinsum(blas)": "Rust opteinsum blas (ms)",
         "omeinsum_path": "Julia OMEinsum path (ms)",
         "omeinsum_opt": "Julia OMEinsum opt (ms)",
         "tensorops": "Julia TensorOps (ms)",
@@ -95,9 +119,13 @@ def format_markdown_table(all_results: dict) -> str:
     for strategy in strategies:
         lines.append(f"### Strategy: {strategy}")
         lines.append("")
-        lines.append(
-            "Median time (ms), single-threaded (OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1, JULIA_NUM_THREADS=1)."
+        thread_vars = ", ".join(
+            f"{k}={metadata[k]}" for k in sorted(metadata) if k in metadata
         )
+        if thread_vars:
+            lines.append(f"Median time (ms). {thread_vars}.")
+        else:
+            lines.append("Median time (ms).")
         lines.append("")
 
         # Header
@@ -129,11 +157,13 @@ def main():
         sys.exit(1)
 
     all_results = {}
+    all_metadata: dict[str, str] = {}
     for filepath in sys.argv[1:]:
-        results = parse_log(filepath)
+        results, metadata = parse_log(filepath)
         all_results.update(results)
+        all_metadata.update(metadata)
 
-    print(format_markdown_table(all_results))
+    print(format_markdown_table(all_results, all_metadata))
 
 
 if __name__ == "__main__":
