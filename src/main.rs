@@ -151,6 +151,15 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Duration 
 }
 
 // ---------------------------------------------------------------------------
+// Backend name (compile-time)
+// ---------------------------------------------------------------------------
+
+#[cfg(all(feature = "faer", not(feature = "blas")))]
+const BACKEND_NAME: &str = "strided-opteinsum(faer)";
+#[cfg(all(feature = "blas", not(feature = "faer")))]
+const BACKEND_NAME: &str = "strided-opteinsum(blas)";
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -187,13 +196,14 @@ fn main() {
     let rayon_threads = std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into());
     let omp_threads = std::env::var("OMP_NUM_THREADS").unwrap_or_else(|_| "unset".into());
 
-    println!("strided-opteinsum benchmark suite");
+    println!("{BACKEND_NAME} benchmark suite");
     println!("==================================");
     println!(
         "Loaded {} instances from {}",
         instances.len(),
         data_dir.display()
     );
+    println!("Backend: {BACKEND_NAME}");
     println!("RAYON_NUM_THREADS={rayon_threads}, OMP_NUM_THREADS={omp_threads}");
     println!("Timing: median of 5 runs (2 warmup)");
 
