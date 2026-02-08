@@ -173,19 +173,19 @@ Environment: Apple Silicon M4. Median time (ms) of 5 runs (2 warmup). Julia BLAS
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 18.570 | 21.084 | 23.651 | - |
-| lm_batch_likelihood_sentence_3_12d | 49.351 | 51.846 | 61.989 | - |
-| lm_batch_likelihood_sentence_4_4d | 20.966 | 21.076 | 24.699 | - |
-| str_matrix_chain_multiplication_100 | 13.558 | 11.911 | 17.368 | 72.455 |
+| lm_batch_likelihood_brackets_4_4d | 18.764 | 20.782 | 20.838 | - |
+| lm_batch_likelihood_sentence_3_12d | 50.148 | 55.970 | 61.733 | - |
+| lm_batch_likelihood_sentence_4_4d | 21.200 | 21.036 | 24.490 | - |
+| str_matrix_chain_multiplication_100 | 13.497 | 11.450 | 19.548 | 69.269 |
 
 #### Strategy: opt_size
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 22.236 | 23.819 | 20.086 | - |
-| lm_batch_likelihood_sentence_3_12d | 51.691 | 52.197 | 54.518 | - |
-| lm_batch_likelihood_sentence_4_4d | 27.268 | 28.404 | 23.007 | - |
-| str_matrix_chain_multiplication_100 | 12.549 | 11.702 | 17.791 | 73.130 |
+| lm_batch_likelihood_brackets_4_4d | 20.793 | 24.847 | 19.829 | - |
+| lm_batch_likelihood_sentence_3_12d | 49.518 | 49.189 | 54.178 | - |
+| lm_batch_likelihood_sentence_4_4d | 25.833 | 30.236 | 21.033 | - |
+| str_matrix_chain_multiplication_100 | 12.658 | 11.568 | 15.914 | 67.500 |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -193,19 +193,19 @@ Environment: Apple Silicon M4. Median time (ms) of 5 runs (2 warmup). Julia BLAS
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 15.119 | 19.890 | 24.146 | - |
-| lm_batch_likelihood_sentence_3_12d | 26.472 | 34.758 | 52.930 | - |
-| lm_batch_likelihood_sentence_4_4d | 16.711 | 20.090 | 31.450 | - |
-| str_matrix_chain_multiplication_100 | 12.028 | 14.326 | 27.983 | 50.694 |
+| lm_batch_likelihood_brackets_4_4d | 14.946 | 16.315 | 19.981 | - |
+| lm_batch_likelihood_sentence_3_12d | 25.458 | 28.477 | 44.182 | - |
+| lm_batch_likelihood_sentence_4_4d | 16.360 | 17.363 | 18.960 | - |
+| str_matrix_chain_multiplication_100 | 9.821 | 8.051 | 14.033 | 25.583 |
 
 #### Strategy: opt_size
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) | TensorOperations.jl (ms) |
 |---|---:|---:|---:|---:|
-| lm_batch_likelihood_brackets_4_4d | 17.096 | 23.760 | 30.158 | - |
-| lm_batch_likelihood_sentence_3_12d | 28.846 | 33.517 | 51.907 | - |
-| lm_batch_likelihood_sentence_4_4d | 25.876 | 28.444 | 31.738 | - |
-| str_matrix_chain_multiplication_100 | 13.578 | 13.845 | 22.889 | 54.894 |
+| lm_batch_likelihood_brackets_4_4d | 16.673 | 19.621 | 17.301 | - |
+| lm_batch_likelihood_sentence_3_12d | 25.714 | 26.642 | 55.158 | - |
+| lm_batch_likelihood_sentence_4_4d | 22.454 | 23.862 | 30.631 | - |
+| str_matrix_chain_multiplication_100 | 10.394 | 9.791 | 24.664 | 25.100 |
 
 **Notes:**
 - `-` indicates TensorOperations.jl could not handle the instance (output index appears in multiple input tensors, which `ncon` does not support).
