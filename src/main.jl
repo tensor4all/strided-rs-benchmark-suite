@@ -97,35 +97,6 @@ function run_with_path(tensors, input_indices, output_indices, path)
 end
 
 # ---------------------------------------------------------------------------
-# OMEinsum: Optimizer-based execution (omeinsum_opt mode)
-# ---------------------------------------------------------------------------
-# Builds a DynamicEinCode and optimizes it with TreeSA(); the contraction
-# order is chosen by OMEinsum, not by the JSON path. Useful for comparing
-# optimizer quality vs. the pre-computed path.
-
-"""
-    run_with_optimizer(tensors, input_indices, output_indices, shapes)
-
-Build size_dict from shapes, optimize the contraction order with TreeSA(),
-then execute. The optimization cost is not included in benchmark timing
-(opt_code is built once per instance in benchmark_instance).
-"""
-function run_with_optimizer(tensors, input_indices, output_indices, shapes)
-    code = DynamicEinCode(input_indices, output_indices)
-
-    # Build size dict from indices and shapes
-    size_dict = Dict{Char,Int}()
-    for (idx, shape) in zip(input_indices, shapes)
-        for (c, s) in zip(idx, shape)
-            size_dict[c] = s
-        end
-    end
-
-    opt_code = optimize_code(code, size_dict, TreeSA())
-    return opt_code(tensors...)
-end
-
-# ---------------------------------------------------------------------------
 # Benchmark runner
 # ---------------------------------------------------------------------------
 # create_tensors: build zero-filled arrays from JSON shapes (float64 or complex128).
@@ -143,10 +114,10 @@ function create_tensors(shapes, dtype::AbstractString)
 end
 
 function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
-    # Julia is column-major; use row-major format_string and shapes from JSON
-    # (same as NumPy convention; shapes match the index order in format_string).
-    format_str = instance["format_string"]
-    shapes = [Tuple(s) for s in instance["shapes"]]
+    # Julia is column-major; use colmajor format_string and shapes from JSON
+    # (reversed from NumPy convention to match column-major memory layout).
+    format_str = instance["format_string_colmajor"]
+    shapes = [Tuple(s) for s in instance["shapes_colmajor"]]
     dtype = instance["dtype"]
     path_meta = instance["paths"][strategy]
     path = [Tuple(p) for p in path_meta["path"]]
@@ -192,6 +163,7 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
         t0 = time_ns()
         result = run_fn(tensors)
         elapsed = (time_ns() - t0) / 1e6  # ns -> ms
+        Base.donotdelete(result)
         push!(durations, elapsed)
     end
 
