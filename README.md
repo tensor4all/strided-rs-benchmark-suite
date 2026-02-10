@@ -204,14 +204,14 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 3668.125 | 4369.987 | - |
-| lm_batch_likelihood_brackets_4_4d | 16.570 | 19.228 | 20.312 |
-| lm_batch_likelihood_sentence_3_12d | 44.068 | 48.307 | 53.241 |
-| lm_batch_likelihood_sentence_4_4d | 18.455 | 20.244 | 19.927 |
-| str_matrix_chain_multiplication_100 | 11.324 | 10.381 | 15.622 |
-| str_mps_varying_inner_product_200 | 16.809 | 18.128 | 16.463 |
-| str_nw_mera_closed_120 | 1106.968 | 1117.674 | 1117.661 |
-| str_nw_mera_open_26 | 708.858 | 709.825 | 789.080 |
+| gm_queen5_5_3.wcsp | 3919.882 | 4682.931 | - |
+| lm_batch_likelihood_brackets_4_4d | 19.114 | 19.429 | 20.035 |
+| lm_batch_likelihood_sentence_3_12d | 46.681 | 50.093 | 62.917 |
+| lm_batch_likelihood_sentence_4_4d | 19.530 | 21.013 | 23.155 |
+| str_matrix_chain_multiplication_100 | 12.478 | 11.024 | 19.526 |
+| str_mps_varying_inner_product_200 | 12.835 | 13.542 | 16.054 |
+| str_nw_mera_closed_120 | 1191.789 | 1182.435 | 1172.915 |
+| str_nw_mera_open_26 | 751.358 | 735.457 | 839.028 |
 
 #### Strategy: opt_size
 
@@ -219,14 +219,14 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1641.181 | 1761.631 | - |
-| lm_batch_likelihood_brackets_4_4d | 18.622 | 22.070 | 18.792 |
-| lm_batch_likelihood_sentence_3_12d | 45.758 | 44.498 | 51.462 |
-| lm_batch_likelihood_sentence_4_4d | 25.068 | 28.101 | 21.045 |
-| str_matrix_chain_multiplication_100 | 11.814 | 11.025 | 16.723 |
-| str_mps_varying_inner_product_200 | 17.063 | 18.885 | 15.952 |
-| str_nw_mera_closed_120 | 1086.953 | 1047.456 | 1102.989 |
-| str_nw_mera_open_26 | 716.123 | 700.660 | 788.000 |
+| gm_queen5_5_3.wcsp | 1724.574 | 1961.826 | - |
+| lm_batch_likelihood_brackets_4_4d | 20.096 | 22.573 | 18.939 |
+| lm_batch_likelihood_sentence_3_12d | 48.854 | 47.580 | 57.141 |
+| lm_batch_likelihood_sentence_4_4d | 26.279 | 27.764 | 22.043 |
+| str_matrix_chain_multiplication_100 | 12.851 | 9.975 | 16.073 |
+| str_mps_varying_inner_product_200 | 12.802 | 13.182 | 16.585 |
+| str_nw_mera_closed_120 | 1142.885 | 1097.181 | 1101.977 |
+| str_nw_mera_open_26 | 775.353 | 739.258 | 828.367 |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -236,14 +236,14 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 3596.537 | 4016.294 | - |
-| lm_batch_likelihood_brackets_4_4d | 14.770 | 16.866 | 22.681 |
-| lm_batch_likelihood_sentence_3_12d | 23.297 | 25.691 | 35.646 |
-| lm_batch_likelihood_sentence_4_4d | 15.981 | 17.680 | 20.867 |
-| str_matrix_chain_multiplication_100 | 8.721 | 9.083 | 16.738 |
-| str_mps_varying_inner_product_200 | 18.064 | 21.777 | 14.960 |
-| str_nw_mera_closed_120 | 380.439 | 376.629 | 369.553 |
-| str_nw_mera_open_26 | 226.710 | 225.963 | 266.211 |
+| gm_queen5_5_3.wcsp | 3782.808 | 4243.466 | - |
+| lm_batch_likelihood_brackets_4_4d | 15.609 | 16.243 | 29.034 |
+| lm_batch_likelihood_sentence_3_12d | 24.670 | 26.248 | 48.189 |
+| lm_batch_likelihood_sentence_4_4d | 16.717 | 17.422 | 16.689 |
+| str_matrix_chain_multiplication_100 | 11.028 | 12.104 | 17.435 |
+| str_mps_varying_inner_product_200 | 13.214 | 15.662 | 15.388 |
+| str_nw_mera_closed_120 | 404.737 | 397.041 | 378.417 |
+| str_nw_mera_open_26 | 236.874 | 235.736 | 288.628 |
 
 #### Strategy: opt_size
 
@@ -251,14 +251,14 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1460.424 | 1346.506 | - |
-| lm_batch_likelihood_brackets_4_4d | 17.422 | 20.490 | 15.355 |
-| lm_batch_likelihood_sentence_3_12d | 22.802 | 23.907 | 29.213 |
-| lm_batch_likelihood_sentence_4_4d | 22.427 | 23.946 | 16.623 |
-| str_matrix_chain_multiplication_100 | 8.223 | 8.766 | 10.914 |
-| str_mps_varying_inner_product_200 | 17.971 | 21.507 | 20.258 |
-| str_nw_mera_closed_120 | 358.271 | 347.332 | 325.146 |
-| str_nw_mera_open_26 | 233.421 | 233.728 | 297.263 |
+| gm_queen5_5_3.wcsp | 1560.392 | 1425.211 | - |
+| lm_batch_likelihood_brackets_4_4d | 19.566 | 20.484 | 16.392 |
+| lm_batch_likelihood_sentence_3_12d | 28.462 | 24.869 | 32.177 |
+| lm_batch_likelihood_sentence_4_4d | 27.108 | 25.331 | 17.580 |
+| str_matrix_chain_multiplication_100 | 11.970 | 7.538 | 12.169 |
+| str_mps_varying_inner_product_200 | 15.446 | 16.000 | 15.600 |
+| str_nw_mera_closed_120 | 403.999 | 367.357 | 357.978 |
+| str_nw_mera_open_26 | 250.197 | 258.079 | 311.808 |
 
 
 **Notes:**
