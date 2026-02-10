@@ -71,16 +71,15 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 uv run python scripts/generate_dataset.py
 ```
 
-This selects instances matching laptop-scale criteria and saves JSON metadata to `data/instances/`.
+This selects instances by category with laptop-scale criteria and saves JSON metadata to `data/instances/`. `rnd_mixed_` instances are excluded (not yet supported by strided-rs).
 
-**Selection criteria:**
+**Selection criteria (per category):**
 
-| Filter | Threshold |
-|--------|-----------|
-| log10[FLOPS] | < 10 |
-| log2[SIZE] | < 25 |
-| dtype | float64 or complex128 |
-| num_tensors | <= 100 |
+| Category | Prefix | log10[FLOPS] | log2[SIZE] | num_tensors | dtype |
+|----------|--------|--------------|------------|-------------|-------|
+| Language model | `lm_` | < 10 | < 25 | ≤ 100 | float64 or complex128 |
+| Graphical model | `gm_` | < 10 | < 27 | ≤ 200 | float64 or complex128 |
+| Structured | `str_` | < 11 | < 26 | ≤ 200 | float64 or complex128 |
 
 ### 2. Run all benchmarks
 
@@ -174,24 +173,28 @@ uv run python scripts/format_results.py data/results/rust_*.log data/results/jul
 
 ## Benchmark Instances
 
-All instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite (float64, zero-filled tensors).
+Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. Selection is per-category (see [Export benchmark metadata](#1-export-benchmark-metadata)); dtype is float64 or complex128; tensors are zero-filled at runtime.
 
 | Instance | Category | Tensors | Dims | Typical shapes | Steps | log10(FLOPS) | log2(SIZE) |
-|---|---|---:|---|---|---:|---:|---:|
-| `lm_batch_likelihood_brackets_4_4d` | Language model | 84 | 2-4D | 4×4, 4×4×4, 7×1996 | 83 | 8.37 | 18.96 |
-| `lm_batch_likelihood_sentence_3_12d` | Language model | 38 | 2-4D | 11×11, 11×11×11, 100×1100 | 37 | 9.20 | 20.86 |
-| `lm_batch_likelihood_sentence_4_4d` | Language model | 84 | 2-4D | 4×4, 4×4×4, 7×1900 | 83 | 8.46 | 18.89 |
+|----------|----------|--------:|------|----------------|------:|-------------:|------------:|
+| `gm_queen5_5_3.wcsp` | Graphical model | 160 | 2D | 3×3 | 159 | 9.75 | 26.94 |
+| `lm_batch_likelihood_brackets_4_4d` | Language model | 84 | 2–4D | 4×4, 4×4×4, 7×1996 | 83 | 8.37 | 18.96 |
+| `lm_batch_likelihood_sentence_3_12d` | Language model | 38 | 2–4D | 11×11, 11×11×11, 100×1100 | 37 | 9.20 | 20.86 |
+| `lm_batch_likelihood_sentence_4_4d` | Language model | 84 | 2–4D | 4×4, 4×4×4, 7×1900 | 83 | 8.46 | 18.89 |
 | `str_matrix_chain_multiplication_100` | Structured | 100 | 2D | 21×478 to 511×507 | 99 | 8.48 | 17.26 |
+| `str_mps_varying_inner_product_200` | Structured (MPS) | 200 | 2D | varying | 199 | 8.31 | 15.48 |
 | `str_nw_mera_closed_120` | Structured (MERA) | 120 | 2D | 3×3, etc. | 119 | 10.66 | 25.02 |
 | `str_nw_mera_open_26` | Structured (MERA) | 26 | 2D | 3×3, etc. | 25 | 10.49 | 25.36 |
 
-- **Language model** instances: many small multi-dimensional tensors (3D/4D) with a few large batch tensors. Many contraction steps with tiny GEMM kernels.
-- **Matrix chain** instance: 100 large 2D matrices. Each contraction step is a single large GEMM.
-- **MERA (str_nw_mera_*)** instances: tensor networks from multi-scale entanglement renormalization; many small 3×3 (or similar) tensors, heavy contraction.
+- **Graphical model (gm_*)**: e.g. WCSP / constraint networks; many small 2D factors (e.g. 3×3), full contraction to scalar.
+- **Language model (lm_*)**: many small multi-dimensional tensors (3D/4D) with large batch dimensions; many steps with small GEMM kernels.
+- **Structured — matrix chain (str_matrix_chain_*)**: large 2D matrices; each step is one large GEMM.
+- **Structured — MPS (str_mps_*)**: matrix product state–style networks; varying inner dimensions, many 2D contractions.
+- **Structured — MERA (str_nw_mera_*)**: tensor networks from multi-scale entanglement renormalization; many small 3×3-like tensors, heavy contraction.
 
 ## Benchmark Results
 
-Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt).
+Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-10.
 
 ### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
@@ -201,14 +204,14 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 3774.411 | 4316.193 | - |
-| lm_batch_likelihood_brackets_4_4d | 17.420 | 18.351 | 19.711 |
-| lm_batch_likelihood_sentence_3_12d | 43.569 | 45.240 | 53.387 |
-| lm_batch_likelihood_sentence_4_4d | 18.185 | 20.146 | 28.886 |
-| str_matrix_chain_multiplication_100 | 11.602 | 10.452 | 17.005 |
-| str_mps_varying_inner_product_200 | 16.958 | 18.597 | 17.210 |
-| str_nw_mera_closed_120 | 1107.324 | 1069.042 | 1116.350 |
-| str_nw_mera_open_26 | 704.454 | 686.719 | 793.797 |
+| gm_queen5_5_3.wcsp | 3668.125 | 4369.987 | - |
+| lm_batch_likelihood_brackets_4_4d | 16.570 | 19.228 | 20.312 |
+| lm_batch_likelihood_sentence_3_12d | 44.068 | 48.307 | 53.241 |
+| lm_batch_likelihood_sentence_4_4d | 18.455 | 20.244 | 19.927 |
+| str_matrix_chain_multiplication_100 | 11.324 | 10.381 | 15.622 |
+| str_mps_varying_inner_product_200 | 16.809 | 18.128 | 16.463 |
+| str_nw_mera_closed_120 | 1106.968 | 1117.674 | 1117.661 |
+| str_nw_mera_open_26 | 708.858 | 709.825 | 789.080 |
 
 #### Strategy: opt_size
 
@@ -216,14 +219,14 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1636.198 | 1708.649 | - |
-| lm_batch_likelihood_brackets_4_4d | 19.331 | 21.666 | 18.644 |
-| lm_batch_likelihood_sentence_3_12d | 47.218 | 44.857 | 52.214 |
-| lm_batch_likelihood_sentence_4_4d | 25.352 | 27.664 | 20.785 |
-| str_matrix_chain_multiplication_100 | 12.835 | 10.858 | 15.107 |
-| str_mps_varying_inner_product_200 | 17.901 | 19.126 | 15.932 |
-| str_nw_mera_closed_120 | 1082.278 | 1041.386 | 1085.563 |
-| str_nw_mera_open_26 | 720.243 | 701.569 | 792.436 |
+| gm_queen5_5_3.wcsp | 1641.181 | 1761.631 | - |
+| lm_batch_likelihood_brackets_4_4d | 18.622 | 22.070 | 18.792 |
+| lm_batch_likelihood_sentence_3_12d | 45.758 | 44.498 | 51.462 |
+| lm_batch_likelihood_sentence_4_4d | 25.068 | 28.101 | 21.045 |
+| str_matrix_chain_multiplication_100 | 11.814 | 11.025 | 16.723 |
+| str_mps_varying_inner_product_200 | 17.063 | 18.885 | 15.952 |
+| str_nw_mera_closed_120 | 1086.953 | 1047.456 | 1102.989 |
+| str_nw_mera_open_26 | 716.123 | 700.660 | 788.000 |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -233,14 +236,14 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 3595.949 | 4199.687 | - |
-| lm_batch_likelihood_brackets_4_4d | 14.764 | 41.028 | 28.081 |
-| lm_batch_likelihood_sentence_3_12d | 23.178 | 62.389 | 30.902 |
-| lm_batch_likelihood_sentence_4_4d | 15.998 | 35.051 | 16.169 |
-| str_matrix_chain_multiplication_100 | 10.000 | 21.842 | 13.867 |
-| str_mps_varying_inner_product_200 | 18.205 | 37.144 | 15.491 |
-| str_nw_mera_closed_120 | 385.426 | 649.763 | 366.599 |
-| str_nw_mera_open_26 | 234.414 | 247.319 | 268.863 |
+| gm_queen5_5_3.wcsp | 3596.537 | 4016.294 | - |
+| lm_batch_likelihood_brackets_4_4d | 14.770 | 16.866 | 22.681 |
+| lm_batch_likelihood_sentence_3_12d | 23.297 | 25.691 | 35.646 |
+| lm_batch_likelihood_sentence_4_4d | 15.981 | 17.680 | 20.867 |
+| str_matrix_chain_multiplication_100 | 8.721 | 9.083 | 16.738 |
+| str_mps_varying_inner_product_200 | 18.064 | 21.777 | 14.960 |
+| str_nw_mera_closed_120 | 380.439 | 376.629 | 369.553 |
+| str_nw_mera_open_26 | 226.710 | 225.963 | 266.211 |
 
 #### Strategy: opt_size
 
@@ -248,14 +251,14 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1434.909 | 1423.930 | - |
-| lm_batch_likelihood_brackets_4_4d | 17.600 | 20.225 | 16.262 |
-| lm_batch_likelihood_sentence_3_12d | 22.618 | 24.571 | 29.823 |
-| lm_batch_likelihood_sentence_4_4d | 22.274 | 23.634 | 16.916 |
-| str_matrix_chain_multiplication_100 | 8.192 | 8.494 | 12.227 |
-| str_mps_varying_inner_product_200 | 18.095 | 21.052 | 17.636 |
-| str_nw_mera_closed_120 | 361.526 | 369.733 | 338.994 |
-| str_nw_mera_open_26 | 236.600 | 273.848 | 279.396 |
+| gm_queen5_5_3.wcsp | 1460.424 | 1346.506 | - |
+| lm_batch_likelihood_brackets_4_4d | 17.422 | 20.490 | 15.355 |
+| lm_batch_likelihood_sentence_3_12d | 22.802 | 23.907 | 29.213 |
+| lm_batch_likelihood_sentence_4_4d | 22.427 | 23.946 | 16.623 |
+| str_matrix_chain_multiplication_100 | 8.223 | 8.766 | 10.914 |
+| str_mps_varying_inner_product_200 | 17.971 | 21.507 | 20.258 |
+| str_nw_mera_closed_120 | 358.271 | 347.332 | 325.146 |
+| str_nw_mera_open_26 | 233.421 | 233.728 | 297.263 |
 
 
 **Notes:**
