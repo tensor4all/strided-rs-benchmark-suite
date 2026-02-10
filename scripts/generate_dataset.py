@@ -15,23 +15,78 @@ from pathlib import Path
 import numpy as np
 import einsum_benchmark
 
+def condition_lm(name: str) -> bool:
+    instance = einsum_benchmark.instances[name]
+    opt_flops_path_meta = instance.paths.opt_flops
+    if not opt_flops_path_meta.flops < 10:
+        return False
+    if not opt_flops_path_meta.size < 25:
+        return False
+    cond_A = "float64" in np.unique([t.dtype.name for t in instance.tensors])
+    cond_B = "complex128" in np.unique([t.dtype.name for t in instance.tensors])
+    if not (cond_A or cond_B):
+        return False
+    if not len(instance.tensors) <= 100:
+        return False
+    return True
+
+def condition_gm(name: str) -> bool:
+    instance = einsum_benchmark.instances[name]
+    opt_flops_path_meta = instance.paths.opt_flops
+    if not opt_flops_path_meta.flops < 10:
+        return False
+    if not opt_flops_path_meta.size < 27:
+        return False
+    cond_A = "float64" in np.unique([t.dtype.name for t in instance.tensors])
+    cond_B = "complex128" in np.unique([t.dtype.name for t in instance.tensors])
+    if not (cond_A or cond_B):
+        return False
+    if not len(instance.tensors) <= 200:
+        return False
+    return True
+
+def condition_str(name: str) -> bool:
+    instance = einsum_benchmark.instances[name]
+    opt_flops_path_meta = instance.paths.opt_flops
+    if not opt_flops_path_meta.flops < 11:
+        return False
+    if not opt_flops_path_meta.size < 26:
+        return False
+    cond_A = "float64" in np.unique([t.dtype.name for t in instance.tensors])
+    cond_B = "complex128" in np.unique([t.dtype.name for t in instance.tensors])
+    if not (cond_A or cond_B):
+        return False
+    if not len(instance.tensors) <= 200:
+        return False
+    return True
 
 def select_small_dataset(names: list[str]) -> list[str]:
     selected_names = []
     for name in names:
-        instance = einsum_benchmark.instances[name]
-        opt_flops_path_meta = instance.paths.opt_flops
-        if not opt_flops_path_meta.flops < 10:
+        if name.startswith("lm_"):
+            if condition_lm(name):
+                selected_names.append(name)
+        elif name.startswith("gm_"):
+            if condition_gm(name):
+                selected_names.append(name)
+        elif name.startswith("str_"):
+            if condition_str(name):
+                selected_names.append(name)
+        elif name.startswith("rnd_mixed_"):
+            """
+            TODO:
+            RND_MIXED instances are not supported yet in strided-rs.
+            """
             continue
-        if not opt_flops_path_meta.size < 25:
-            continue
-        cond_A = "float64" in np.unique([t.dtype.name for t in instance.tensors])
-        cond_B = "complex128" in np.unique([t.dtype.name for t in instance.tensors])
-        if not (cond_A or cond_B):
-            continue
-        if not len(instance.tensors) <= 100:
-            continue
-        selected_names.append(name)
+        else:
+            instance = einsum_benchmark.instances[name]
+            cond_A = "float64" in np.unique([t.dtype.name for t in instance.tensors])
+            cond_B = "complex128" in np.unique([t.dtype.name for t in instance.tensors])
+            if not (cond_A or cond_B):
+                continue
+            if not len(instance.tensors) <= 100:
+                continue
+            selected_names.append(name)
     return selected_names
 
 
