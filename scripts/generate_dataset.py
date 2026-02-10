@@ -142,7 +142,7 @@ def convert_format_string_to_colmajor(format_string: str) -> str:
         return ",".join(reversed_inputs)
 
 
-def add_colum_major_meta(meta: dict) -> dict:
+def add_column_major_meta(meta: dict) -> dict:
     """Add column-major metadata to an instance metadata dict.
 
     - Reverse each tensor's shape
@@ -168,7 +168,7 @@ def main():
     for name in selected_names:
         instance = einsum_benchmark.instances[name]
         meta = build_instance_metadata(instance)
-        meta_col = add_colum_major_meta(meta)
+        meta_col = add_column_major_meta(meta)
         instances_metadata.append(meta_col)
 
     print(f"Selected {len(instances_metadata)} instances:")
