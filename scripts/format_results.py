@@ -140,11 +140,23 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
 
         # Data rows
         for name in instances:
+            # Find the minimum value across modes for this row
+            values = {}
+            for mode in mode_order:
+                key = (name, strategy, mode)
+                if key in all_results:
+                    values[mode] = all_results[key]
+            min_val = min(values.values()) if values else None
+
             row = [name]
             for mode in mode_order:
                 key = (name, strategy, mode)
                 if key in all_results:
-                    row.append(f"{all_results[key]:.3f}")
+                    val = all_results[key]
+                    formatted = f"{val:.3f}"
+                    if min_val is not None and val == min_val:
+                        formatted = f"**{formatted}**"
+                    row.append(formatted)
                 else:
                     row.append("-")
             lines.append("| " + " | ".join(row) + " |")
