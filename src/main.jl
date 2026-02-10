@@ -154,12 +154,11 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
     input_indices, output_indices = parse_format_string(format_str)
     @assert length(input_indices) == instance["num_tensors"]
 
+    # Build the computation closure (takes pre-allocated tensors as argument).
+    # Tensor allocation is excluded from timing to match the Rust runner.
     run_fn = if mode == :omeinsum_path
         # Same path as Rust: fair comparison of kernel performance.
-        () -> begin
-            tensors = create_tensors(shapes, dtype)
-            run_with_path(tensors, input_indices, output_indices, path)
-        end
+        (tensors) -> run_with_path(tensors, input_indices, output_indices, path)
     elseif mode == :omeinsum_opt
         # OMEinsum optimizer (TreeSA); path built once, not timed.
         code = DynamicEinCode(input_indices, output_indices)
@@ -170,10 +169,7 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
             end
         end
         opt_code = optimize_code(code, size_dict, TreeSA())
-        () -> begin
-            tensors = create_tensors(shapes, dtype)
-            opt_code(tensors...)
-        end
+        (tensors) -> opt_code(tensors...)
     else
         error("unknown mode: $mode")
     end
@@ -181,7 +177,8 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
     # Warmup (2 runs); failures (e.g. MethodError) return (nothing, error_string)
     try
         for _ in 1:2
-            run_fn()
+            tensors = create_tensors(shapes, dtype)
+            run_fn(tensors)
         end
     catch e
         return nothing, string(e)
@@ -191,8 +188,9 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
     num_runs = 5
     durations = Float64[]
     for _ in 1:num_runs
+        tensors = create_tensors(shapes, dtype)
         t0 = time_ns()
-        result = run_fn()
+        result = run_fn(tensors)
         elapsed = (time_ns() - t0) / 1e6  # ns -> ms
         push!(durations, elapsed)
     end
