@@ -120,7 +120,7 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
     lines = []
 
     for strategy in strategies:
-        lines.append(f"### Strategy: {strategy}")
+        lines.append(f"#### Strategy: {strategy}")
         lines.append("")
         thread_vars = ", ".join(
             f"{k}={metadata[k]}" for k in sorted(metadata) if k in metadata
