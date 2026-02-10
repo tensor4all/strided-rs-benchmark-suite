@@ -3,7 +3,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
-use strided_opteinsum::{EinsumCode, EinsumNode, EinsumOperand};
+use strided_opteinsum::{EinsumCode, EinsumError, EinsumNode, EinsumOperand};
 use strided_view::StridedArray;
 
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ fn create_operands(shapes: &[Vec<usize>], dtype: &str) -> Vec<EinsumOperand<'sta
     }
 }
 
-fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Duration {
+fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Duration, EinsumError> {
     let (input_indices, output_indices) = parse_format_string(&instance.format_string_colmajor);
     assert_eq!(
         input_indices.len(),
@@ -130,8 +130,7 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Duration 
     // Warmup
     for _ in 0..2 {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
-        let result = code.evaluate(operands).unwrap();
-        black_box(&result);
+        code.evaluate(operands)?;
     }
 
     // Timed runs
@@ -140,14 +139,14 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Duration 
     for _ in 0..num_runs {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
         let t0 = Instant::now();
-        let result = code.evaluate(operands).unwrap();
+        let result = code.evaluate(operands)?;
         let elapsed = t0.elapsed();
         black_box(&result);
         durations.push(elapsed);
     }
 
     durations.sort();
-    durations[durations.len() / 2]
+    Ok(durations[durations.len() / 2])
 }
 
 // ---------------------------------------------------------------------------
@@ -180,18 +179,35 @@ fn load_instances() -> Vec<BenchmarkInstance> {
 
     paths
         .iter()
-        .map(|path| {
-            let json_str = std::fs::read_to_string(path)
-                .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
-            serde_json::from_str(&json_str)
-                .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()))
+        .filter_map(|path| {
+            let json_str = match std::fs::read_to_string(path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Warning: skip {} (read failed: {e})", path.display());
+                    return None;
+                }
+            };
+            match serde_json::from_str(&json_str) {
+                Ok(instance) => Some(instance),
+                Err(e) => {
+                    eprintln!("Warning: skip {} (parse failed: {e})", path.display());
+                    None
+                }
+            }
         })
         .collect()
 }
 
 fn main() {
     let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/instances");
-    let instances = load_instances();
+    let mut instances = load_instances();
+    if let Ok(filter) = std::env::var("BENCH_INSTANCE") {
+        instances.retain(|i| i.name == filter);
+        if instances.is_empty() {
+            eprintln!("BENCH_INSTANCE={filter:?}: no matching instance found");
+            std::process::exit(1);
+        }
+    }
 
     let rayon_threads = std::env::var("RAYON_NUM_THREADS").unwrap_or_else(|_| "unset".into());
     let omp_threads = std::env::var("OMP_NUM_THREADS").unwrap_or_else(|_| "unset".into());
@@ -223,15 +239,29 @@ fn main() {
 
         for instance in &instances {
             let path_meta = get_path(&instance.paths);
-            let median = run_instance(instance, path_meta);
-            println!(
-                "{:<50} {:>8} {:>10.2} {:>12.2} {:>12.3}",
-                instance.name,
-                instance.num_tensors,
-                path_meta.log10_flops,
-                path_meta.log2_size,
-                median.as_secs_f64() * 1e3,
-            );
+            match run_instance(instance, path_meta) {
+                Ok(median) => {
+                    println!(
+                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12.3}",
+                        instance.name,
+                        instance.num_tensors,
+                        path_meta.log10_flops,
+                        path_meta.log2_size,
+                        median.as_secs_f64() * 1e3,
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12}",
+                        instance.name,
+                        instance.num_tensors,
+                        path_meta.log10_flops,
+                        path_meta.log2_size,
+                        "SKIP",
+                    );
+                    eprintln!("  -> {} (backend error: {e})", instance.name);
+                }
+            }
         }
     }
 }
