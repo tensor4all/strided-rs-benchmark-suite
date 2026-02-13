@@ -33,6 +33,8 @@ struct PathMeta {
     log10_flops: f64,
 }
 
+type PathStrategy = (&'static str, fn(&PathInfo) -> &PathMeta);
+
 // ---------------------------------------------------------------------------
 // Format string parsing
 // ---------------------------------------------------------------------------
@@ -223,7 +225,7 @@ fn main() {
     println!("RAYON_NUM_THREADS={rayon_threads}, OMP_NUM_THREADS={omp_threads}");
     println!("Timing: median of 5 runs (2 warmup)");
 
-    let strategies: &[(&str, fn(&PathInfo) -> &PathMeta)] = &[
+    let strategies: &[PathStrategy] = &[
         ("opt_flops", |p| &p.opt_flops),
         ("opt_size", |p| &p.opt_size),
     ];
