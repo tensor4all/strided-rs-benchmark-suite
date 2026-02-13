@@ -24,6 +24,7 @@ strided-rs-benchmark-suite/
   scripts/
     run_all.sh              # Run all benchmarks (configurable thread count)
     generate_dataset.py     # Filter & export benchmark instances as JSON
+    convert_tensornetwork.py # Convert TensorNetworkBenchmarks format to strided-rs JSON
     format_results.py       # Parse logs and output markdown tables
   data/
     instances/              # Exported JSON metadata (one file per instance)
@@ -73,6 +74,16 @@ uv run python scripts/generate_dataset.py
 
 This selects instances by category with laptop-scale criteria and saves JSON metadata to `data/instances/`. `rnd_mixed_` instances are excluded (not yet supported by strided-rs).
 
+**Optional: Convert TensorNetworkBenchmarks format**
+
+To add the TensorNetworkBenchmarks tensor network (550 tensors, 2^33.2 complexity) as a strided-rs instance:
+
+```bash
+python scripts/convert_tensornetwork.py
+```
+
+Requires `TensorNetworkBenchmarks/data/tensornetwork_permutation_optimized.json` at `../TensorNetworkBenchmarks/` relative to the benchmark suite.
+
 **Selection criteria (per category):**
 
 | Category | Prefix | log10[FLOPS] | log2[SIZE] | num_tensors | dtype |
@@ -94,7 +105,7 @@ Instance JSON files that fail to read or parse are skipped with a warning; the s
 
 ### 3. Run a single instance
 
-To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`) or to avoid timeouts.
+To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`, `tensornetwork_permutation_optimized`) or to avoid timeouts.
 
 **With the full script (Rust + Julia):**
 
@@ -185,12 +196,14 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 | `str_mps_varying_inner_product_200` | Structured (MPS) | 200 | 2D | varying | 199 | 8.31 | 15.48 |
 | `str_nw_mera_closed_120` | Structured (MERA) | 120 | 2D | 3×3, etc. | 119 | 10.66 | 25.02 |
 | `str_nw_mera_open_26` | Structured (MERA) | 26 | 2D | 3×3, etc. | 25 | 10.49 | 25.36 |
+| `tensornetwork_permutation_optimized` | Tensor network | 550 | 2D | 2×2 (uniform) | 549 | 9.99 | 33.2 |
 
 - **Graphical model (gm_*)**: e.g. WCSP / constraint networks; many small 2D factors (e.g. 3×3), full contraction to scalar.
 - **Language model (lm_*)**: many small multi-dimensional tensors (3D/4D) with large batch dimensions; many steps with small GEMM kernels.
 - **Structured — matrix chain (str_matrix_chain_*)**: large 2D matrices; each step is one large GEMM.
 - **Structured — MPS (str_mps_*)**: matrix product state–style networks; varying inner dimensions, many 2D contractions.
 - **Structured — MERA (str_nw_mera_*)**: tensor networks from multi-scale entanglement renormalization; many small 3×3-like tensors, heavy contraction.
+- **Tensor network (tensornetwork_permutation_optimized)**: from [TensorNetworkBenchmarks](https://github.com/TensorBFS/TensorNetworkBenchmarks); 550 tensors, uniform 2×2, contraction complexity 2^33.2. Add via `scripts/convert_tensornetwork.py`.
 
 ## Benchmark Results
 
@@ -277,3 +290,4 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 - [ti2-group/einsum_benchmark](https://github.com/ti2-group/einsum_benchmark) — Python package
 - [tensor4all/strided-rs](https://github.com/tensor4all/strided-rs) — Rust tensor library
 - [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl) — Julia einsum library
+- [TensorNetworkBenchmarks](https://github.com/TensorBFS/TensorNetworkBenchmarks) — tensor network contraction benchmarks (PyTorch, OMEinsum.jl)
