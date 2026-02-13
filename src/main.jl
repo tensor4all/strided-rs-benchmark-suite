@@ -202,7 +202,7 @@ function main()
     println("Timing: median of 5 runs (2 warmup)")
 
     strategies = ["opt_flops", "opt_size"]
-    modes = [:omeinsum_path, :omeinsum_opt]  # same path as Rust; optimizer path
+    modes = [:omeinsum_path]  # same pre-computed path as Rust
 
     for mode in modes
         for strategy in strategies
