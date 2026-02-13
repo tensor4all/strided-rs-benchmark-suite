@@ -84,6 +84,19 @@ python scripts/convert_tensornetwork.py
 
 Requires `TensorNetworkBenchmarks/data/tensornetwork_permutation_optimized.json` at `../TensorNetworkBenchmarks/` relative to the benchmark suite.
 
+**Optional: Create a lightweight tensor network instance**
+
+The full `tensornetwork_permutation_optimized` instance (550 tensors) takes ~40 seconds. To create a lighter version (~5 seconds), extract a connected subgraph with an optimized contraction path:
+
+```bash
+uv run python scripts/create_lightweight_instance.py \
+  data/instances/tensornetwork_permutation_optimized.json \
+  data/instances/tensornetwork_permutation_light_415.json \
+  415
+```
+
+The script finds a BFS-connected subset of the given size with minimal free indices, sets the output to scalar, and computes an optimized contraction path via `opt_einsum`.
+
 **Selection criteria (per category):**
 
 | Category | Prefix | log10[FLOPS] | log2[SIZE] | num_tensors | dtype |
