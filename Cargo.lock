@@ -1160,6 +1160,7 @@ dependencies = [
  "num-complex",
  "num-traits",
  "strided-kernel",
+ "strided-traits",
  "strided-view",
  "thiserror 1.0.69",
 ]
@@ -1199,11 +1200,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "strided-traits"
+version = "0.1.0"
+dependencies = [
+ "num-complex",
+ "num-traits",
+]
+
+[[package]]
 name = "strided-view"
 version = "0.1.0"
 dependencies = [
  "num-complex",
  "num-traits",
+ "strided-traits",
  "thiserror 1.0.69",
 ]
 

@@ -24,6 +24,7 @@ strided-rs-benchmark-suite/
   scripts/
     run_all.sh              # Run all benchmarks (configurable thread count)
     generate_dataset.py     # Filter & export benchmark instances as JSON
+    convert_tensornetwork.py # Convert TensorNetworkBenchmarks format to strided-rs JSON
     format_results.py       # Parse logs and output markdown tables
   data/
     instances/              # Exported JSON metadata (one file per instance)
@@ -73,6 +74,16 @@ uv run python scripts/generate_dataset.py
 
 This selects instances by category with laptop-scale criteria and saves JSON metadata to `data/instances/`. `rnd_mixed_` instances are excluded (not yet supported by strided-rs).
 
+**Optional: Convert TensorNetworkBenchmarks format**
+
+To add the TensorNetworkBenchmarks tensor network (550 tensors, 2^33.2 complexity) as a strided-rs instance:
+
+```bash
+python scripts/convert_tensornetwork.py
+```
+
+Requires `TensorNetworkBenchmarks/data/tensornetwork_permutation_optimized.json` at `../TensorNetworkBenchmarks/` relative to the benchmark suite.
+
 **Selection criteria (per category):**
 
 | Category | Prefix | log10[FLOPS] | log2[SIZE] | num_tensors | dtype |
@@ -94,7 +105,7 @@ Instance JSON files that fail to read or parse are skipped with a warning; the s
 
 ### 3. Run a single instance
 
-To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`) or to avoid timeouts.
+To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`, `tensornetwork_permutation_optimized`) or to avoid timeouts.
 
 **With the full script (Rust + Julia):**
 
@@ -185,16 +196,18 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 | `str_mps_varying_inner_product_200` | Structured (MPS) | 200 | 2D | varying | 199 | 8.31 | 15.48 |
 | `str_nw_mera_closed_120` | Structured (MERA) | 120 | 2D | 3×3, etc. | 119 | 10.66 | 25.02 |
 | `str_nw_mera_open_26` | Structured (MERA) | 26 | 2D | 3×3, etc. | 25 | 10.49 | 25.36 |
+| `tensornetwork_permutation_optimized` | Tensor network | 550 | 2D | 2×2 (uniform) | 549 | 9.99 | 33.2 |
 
 - **Graphical model (gm_*)**: e.g. WCSP / constraint networks; many small 2D factors (e.g. 3×3), full contraction to scalar.
 - **Language model (lm_*)**: many small multi-dimensional tensors (3D/4D) with large batch dimensions; many steps with small GEMM kernels.
 - **Structured — matrix chain (str_matrix_chain_*)**: large 2D matrices; each step is one large GEMM.
 - **Structured — MPS (str_mps_*)**: matrix product state–style networks; varying inner dimensions, many 2D contractions.
 - **Structured — MERA (str_nw_mera_*)**: tensor networks from multi-scale entanglement renormalization; many small 3×3-like tensors, heavy contraction.
+- **Tensor network (tensornetwork_permutation_optimized)**: from [TensorNetworkBenchmarks](https://github.com/TensorBFS/TensorNetworkBenchmarks); 550 tensors, uniform 2×2, contraction complexity 2^33.2. Add via `scripts/convert_tensornetwork.py`.
 
 ## Benchmark Results
 
-Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-10.
+Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-13.
 
 ### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
@@ -204,14 +217,15 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **3868.315** | 4439.174 | - |
-| lm_batch_likelihood_brackets_4_4d | **16.403** | 18.801 | 17.276 |
-| lm_batch_likelihood_sentence_3_12d | **46.311** | 49.050 | 49.550 |
-| lm_batch_likelihood_sentence_4_4d | **18.441** | 20.086 | 18.595 |
-| str_matrix_chain_multiplication_100 | 12.630 | **10.311** | 13.194 |
-| str_mps_varying_inner_product_200 | **12.774** | 13.196 | 16.862 |
-| str_nw_mera_closed_120 | 1135.187 | **1063.085** | 1112.791 |
-| str_nw_mera_open_26 | 726.162 | **693.668** | 840.282 |
+| gm_queen5_5_3.wcsp | **3877.911** | 4606.837 | - |
+| lm_batch_likelihood_brackets_4_4d | **15.930** | 18.789 | 82.372 |
+| lm_batch_likelihood_sentence_3_12d | **43.116** | 45.284 | 113.109 |
+| lm_batch_likelihood_sentence_4_4d | **17.727** | 20.864 | 20.963 |
+| str_matrix_chain_multiplication_100 | 10.580 | **10.316** | 14.164 |
+| str_mps_varying_inner_product_200 | **12.136** | 13.391 | 15.979 |
+| str_nw_mera_closed_120 | 1089.003 | **1067.282** | 1173.971 |
+| str_nw_mera_open_26 | 699.870 | **684.476** | 905.377 |
+| tensornetwork_permutation_optimized | 38939.146 | 39733.954 | **11063.176** |
 
 #### Strategy: opt_size
 
@@ -219,14 +233,16 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **1668.191** | 1756.276 | - |
-| lm_batch_likelihood_brackets_4_4d | 18.672 | 20.976 | **17.137** |
-| lm_batch_likelihood_sentence_3_12d | 45.684 | **43.907** | 46.867 |
-| lm_batch_likelihood_sentence_4_4d | 24.315 | 25.999 | **18.462** |
-| str_matrix_chain_multiplication_100 | 11.631 | **10.004** | 13.446 |
-| str_mps_varying_inner_product_200 | **11.698** | 13.060 | 15.042 |
-| str_nw_mera_closed_120 | 1105.043 | **1053.327** | 1090.510 |
-| str_nw_mera_open_26 | 722.103 | **705.949** | 852.793 |
+| gm_queen5_5_3.wcsp | **1600.979** | 1698.846 | - |
+| lm_batch_likelihood_brackets_4_4d | 18.466 | 21.589 | **17.752** |
+| lm_batch_likelihood_sentence_3_12d | 44.611 | **43.993** | 59.174 |
+| lm_batch_likelihood_sentence_4_4d | 23.989 | 26.137 | **19.648** |
+| str_matrix_chain_multiplication_100 | 11.769 | **10.257** | 12.652 |
+| str_mps_varying_inner_product_200 | **12.283** | 13.592 | 16.111 |
+| str_nw_mera_closed_120 | 1074.714 | **1034.262** | 1132.100 |
+| str_nw_mera_open_26 | 708.532 | **694.482** | 912.705 |
+| tensornetwork_permutation_optimized | 39329.488 | 39690.145 | **11165.430** |
+
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -236,14 +252,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **3666.892** | 4150.952 | - |
-| lm_batch_likelihood_brackets_4_4d | **14.665** | 16.253 | 20.158 |
-| lm_batch_likelihood_sentence_3_12d | **22.892** | 24.728 | 27.048 |
-| lm_batch_likelihood_sentence_4_4d | 15.910 | 17.292 | **14.994** |
-| str_matrix_chain_multiplication_100 | **8.447** | 8.473 | 9.512 |
-| str_mps_varying_inner_product_200 | **13.087** | 16.768 | 14.619 |
-| str_nw_mera_closed_120 | 397.785 | 388.291 | **357.994** |
-| str_nw_mera_open_26 | **231.865** | 235.871 | 315.296 |
+| gm_queen5_5_3.wcsp | **3597.925** | 4140.335 | - |
+| lm_batch_likelihood_brackets_4_4d | **14.123** | 15.682 | 40.715 |
+| lm_batch_likelihood_sentence_3_12d | **21.809** | 24.279 | 53.422 |
+| lm_batch_likelihood_sentence_4_4d | **15.274** | 16.773 | 19.771 |
+| str_matrix_chain_multiplication_100 | **7.391** | 8.186 | 10.175 |
+| str_mps_varying_inner_product_200 | **12.893** | 16.434 | 20.788 |
+| str_nw_mera_closed_120 | 379.108 | **374.075** | 393.396 |
+| str_nw_mera_open_26 | 229.874 | **225.807** | 354.435 |
+| tensornetwork_permutation_optimized | 35396.249 | 38244.289 | **8381.014** |
 
 #### Strategy: opt_size
 
@@ -251,14 +268,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1473.883 | **1377.685** | - |
-| lm_batch_likelihood_brackets_4_4d | 16.778 | 20.040 | **14.740** |
-| lm_batch_likelihood_sentence_3_12d | **22.713** | 23.332 | 25.816 |
-| lm_batch_likelihood_sentence_4_4d | 22.257 | 23.742 | **14.249** |
-| str_matrix_chain_multiplication_100 | **8.034** | 8.064 | 8.273 |
-| str_mps_varying_inner_product_200 | 13.942 | 16.381 | **13.707** |
-| str_nw_mera_closed_120 | 367.358 | 351.899 | **321.296** |
-| str_nw_mera_open_26 | **235.632** | 238.057 | 314.453 |
+| gm_queen5_5_3.wcsp | 1410.605 | **1327.121** | - |
+| lm_batch_likelihood_brackets_4_4d | **16.432** | 19.255 | 16.549 |
+| lm_batch_likelihood_sentence_3_12d | **21.752** | 23.624 | 47.730 |
+| lm_batch_likelihood_sentence_4_4d | 21.749 | 23.515 | **14.322** |
+| str_matrix_chain_multiplication_100 | 7.547 | **6.567** | 8.949 |
+| str_mps_varying_inner_product_200 | 13.516 | **13.468** | 15.214 |
+| str_nw_mera_closed_120 | 356.137 | **346.998** | 351.411 |
+| str_nw_mera_open_26 | 237.461 | **236.766** | 349.422 |
+| tensornetwork_permutation_optimized | 35175.276 | 37913.324 | **8312.024** |
 
 
 **Notes:**
@@ -272,3 +290,4 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 - [ti2-group/einsum_benchmark](https://github.com/ti2-group/einsum_benchmark) — Python package
 - [tensor4all/strided-rs](https://github.com/tensor4all/strided-rs) — Rust tensor library
 - [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl) — Julia einsum library
+- [TensorNetworkBenchmarks](https://github.com/TensorBFS/TensorNetworkBenchmarks) — tensor network contraction benchmarks (PyTorch, OMEinsum.jl)

@@ -130,7 +130,7 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Du
     // Warmup
     for _ in 0..2 {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
-        code.evaluate(operands)?;
+        code.evaluate(operands, None)?;
     }
 
     // Timed runs
@@ -139,7 +139,7 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Du
     for _ in 0..num_runs {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
         let t0 = Instant::now();
-        let result = code.evaluate(operands)?;
+        let result = code.evaluate(operands, None)?;
         let elapsed = t0.elapsed();
         black_box(&result);
         durations.push(elapsed);
