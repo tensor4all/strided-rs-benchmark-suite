@@ -10,16 +10,17 @@ import re
 import sys
 
 
-def parse_log(filepath: str) -> tuple[dict[tuple[str, str, str], float], dict[str, str]]:
+def parse_log(filepath: str) -> tuple[dict[tuple[str, str, str], tuple[float, float | None]], dict[str, str]]:
     """Parse a benchmark log and return (results, metadata).
 
-    results: {(instance, strategy, mode): median_ms}
+    results: {(instance, strategy, mode): (median_ms, iqr_ms or None)}
     metadata: thread environment variables found in the log
     """
-    results: dict[tuple[str, str, str], float] = {}
+    results: dict[tuple[str, str, str], tuple[float, float | None]] = {}
     current_mode = None
     current_strategy = None
     metadata: dict[str, str] = {}
+    has_iqr = False  # whether current log has IQR column
 
     # Detect engine from header
     engine = None
@@ -63,18 +64,29 @@ def parse_log(filepath: str) -> tuple[dict[tuple[str, str, str], float], dict[st
                 current_strategy = m.group(2)
                 continue
 
+            # Detect IQR column from header
+            if line.startswith("Instance") and "IQR" in line:
+                has_iqr = True
+                continue
+
             # Skip headers and separators
             if line.startswith("Instance") or line.startswith("-"):
                 continue
 
-            # Parse data line: name, tensors, log10flops, log2size, median_ms
+            # Parse data line: name, tensors, log10flops, log2size, median_ms [, iqr_ms]
             parts = line.split()
             if len(parts) >= 5 and current_mode and current_strategy:
                 try:
                     name = parts[0]
-                    median_ms = float(parts[-1])
+                    if has_iqr and len(parts) >= 6:
+                        median_ms = float(parts[-2])
+                        iqr_str = parts[-1]
+                        iqr_ms = float(iqr_str) if iqr_str != "-" else None
+                    else:
+                        median_ms = float(parts[-1])
+                        iqr_ms = None
                     key = (name, current_strategy, current_mode)
-                    results[key] = median_ms
+                    results[key] = (median_ms, iqr_ms)
                 except (ValueError, IndexError):
                     continue
 
@@ -87,6 +99,9 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
     instances = sorted(set(name for name, _, _ in all_results.keys()))
     strategies = sorted(set(strat for _, strat, _ in all_results.keys()))
     modes = sorted(set(mode for _, _, mode in all_results.keys()))
+
+    # Check if any result has IQR data
+    has_iqr = any(iqr is not None for _, (_, iqr) in all_results.items())
 
     # Modes to exclude from output (unfair comparison: different contraction path)
     excluded_modes = {"omeinsum_opt"}
@@ -126,9 +141,9 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
             f"{k}={metadata[k]}" for k in sorted(metadata) if k in metadata
         )
         if thread_vars:
-            lines.append(f"Median time (ms). {thread_vars}.")
+            lines.append(f"Median ± IQR (ms). {thread_vars}." if has_iqr else f"Median time (ms). {thread_vars}.")
         else:
-            lines.append("Median time (ms).")
+            lines.append("Median ± IQR (ms)." if has_iqr else "Median time (ms).")
         lines.append("")
 
         # Header
@@ -140,21 +155,24 @@ def format_markdown_table(all_results: dict, metadata: dict[str, str]) -> str:
 
         # Data rows
         for name in instances:
-            # Find the minimum value across modes for this row
-            values = {}
+            # Find the minimum median value across modes for this row
+            medians = {}
             for mode in mode_order:
                 key = (name, strategy, mode)
                 if key in all_results:
-                    values[mode] = all_results[key]
-            min_val = min(values.values()) if values else None
+                    medians[mode] = all_results[key][0]
+            min_val = min(medians.values()) if medians else None
 
             row = [name]
             for mode in mode_order:
                 key = (name, strategy, mode)
                 if key in all_results:
-                    val = all_results[key]
-                    formatted = f"{val:.3f}"
-                    if min_val is not None and val == min_val:
+                    median_ms, iqr_ms = all_results[key]
+                    if has_iqr and iqr_ms is not None:
+                        formatted = f"{median_ms:.3f} ± {iqr_ms:.3f}"
+                    else:
+                        formatted = f"{median_ms:.3f}"
+                    if min_val is not None and median_ms == min_val:
                         formatted = f"**{formatted}**"
                     row.append(formatted)
                 else:

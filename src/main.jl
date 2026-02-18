@@ -16,7 +16,7 @@
 # =============================================================================
 
 using Printf
-using Statistics: median
+using Statistics: median, quantile
 using LinearAlgebra: BLAS
 using OMEinsum
 using OMEinsumContractionOrders
@@ -145,18 +145,18 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
         error("unknown mode: $mode")
     end
 
-    # Warmup (2 runs); failures (e.g. MethodError) return (nothing, error_string)
+    # Warmup (3 runs); failures (e.g. MethodError) return (nothing, nothing, nothing, error_string)
     try
-        for _ in 1:2
+        for _ in 1:3
             tensors = create_tensors(shapes, dtype)
             run_fn(tensors)
         end
     catch e
-        return nothing, string(e)
+        return nothing, nothing, nothing, string(e)
     end
 
-    # Timed runs: 5 runs, report median in ms
-    num_runs = 5
+    # Timed runs: 15 runs, report median and IQR in ms
+    num_runs = 15
     durations = Float64[]
     for _ in 1:num_runs
         tensors = create_tensors(shapes, dtype)
@@ -167,7 +167,9 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
         push!(durations, elapsed)
     end
 
-    return median(durations), nothing
+    q1 = quantile(durations, 0.25)
+    q3 = quantile(durations, 0.75)
+    return median(durations), q3 - q1, nothing, nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -199,7 +201,7 @@ function main()
     println("Loaded $(length(instances)) instances from $data_dir")
     println("Julia threads: $(Threads.nthreads()), BLAS threads: $(BLAS.get_num_threads()), BLAS vendor: $(BLAS.vendor())")
     println("OMP_NUM_THREADS=$(get(ENV, "OMP_NUM_THREADS", "unset")), JULIA_NUM_THREADS=$(get(ENV, "JULIA_NUM_THREADS", "unset"))")
-    println("Timing: median of 5 runs (2 warmup)")
+    println("Timing: median of 15 runs (3 warmup)")
 
     strategies = ["opt_flops", "opt_size"]
     modes = [:omeinsum_path]  # same pre-computed path as Rust
@@ -226,28 +228,30 @@ function main()
         for strategy in strategies
             println()
             println("Mode: $mode / Strategy: $strategy")
-            @printf("%-50s %8s %10s %12s %12s\n",
-                "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)")
-            println("-"^96)
+            @printf("%-50s %8s %10s %12s %12s %10s\n",
+                "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)", "IQR (ms)")
+            println("-"^108)
 
             for instance in instances
                 path_meta = instance["paths"][strategy]
-                median_ms, err = benchmark_instance(instance, strategy, mode)
+                median_ms, iqr_ms, _, err = benchmark_instance(instance, strategy, mode)
                 if median_ms === nothing
-                    @printf("%-50s %8d %10.2f %12.2f %12s\n",
+                    @printf("%-50s %8d %10.2f %12.2f %12s %10s\n",
                         instance["name"],
                         instance["num_tensors"],
                         path_meta["log10_flops"],
                         path_meta["log2_size"],
-                        "SKIP")
+                        "SKIP",
+                        "-")
                     println("  reason: $err")
                 else
-                    @printf("%-50s %8d %10.2f %12.2f %12.3f\n",
+                    @printf("%-50s %8d %10.2f %12.2f %12.3f %10.3f\n",
                         instance["name"],
                         instance["num_tensors"],
                         path_meta["log10_flops"],
                         path_meta["log2_size"],
-                        median_ms)
+                        median_ms,
+                        iqr_ms)
                 end
             end
         end

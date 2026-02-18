@@ -115,7 +115,22 @@ fn create_operands(shapes: &[Vec<usize>], dtype: &str) -> Vec<EinsumOperand<'sta
     }
 }
 
-fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Duration, EinsumError> {
+struct BenchResult {
+    median_ms: f64,
+    q1_ms: f64,
+    q3_ms: f64,
+}
+
+impl BenchResult {
+    fn iqr_ms(&self) -> f64 {
+        self.q3_ms - self.q1_ms
+    }
+}
+
+const NUM_WARMUP: usize = 3;
+const NUM_TIMED: usize = 15;
+
+fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<BenchResult, EinsumError> {
     let (input_indices, output_indices) = parse_format_string(&instance.format_string_colmajor);
     assert_eq!(
         input_indices.len(),
@@ -130,15 +145,14 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Du
     };
 
     // Warmup
-    for _ in 0..2 {
+    for _ in 0..NUM_WARMUP {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
         code.evaluate(operands, None)?;
     }
 
     // Timed runs
-    let num_runs = 5;
-    let mut durations = Vec::with_capacity(num_runs);
-    for _ in 0..num_runs {
+    let mut durations = Vec::with_capacity(NUM_TIMED);
+    for _ in 0..NUM_TIMED {
         let operands = create_operands(&instance.shapes_colmajor, &instance.dtype);
         let t0 = Instant::now();
         let result = code.evaluate(operands, None)?;
@@ -148,7 +162,14 @@ fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<Du
     }
 
     durations.sort();
-    Ok(durations[durations.len() / 2])
+    let median = durations[durations.len() / 2];
+    let q1 = durations[durations.len() / 4];
+    let q3 = durations[3 * durations.len() / 4];
+    Ok(BenchResult {
+        median_ms: median.as_secs_f64() * 1e3,
+        q1_ms: q1.as_secs_f64() * 1e3,
+        q3_ms: q3.as_secs_f64() * 1e3,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +244,7 @@ fn main() {
     );
     println!("Backend: {BACKEND_NAME}");
     println!("RAYON_NUM_THREADS={rayon_threads}, OMP_NUM_THREADS={omp_threads}");
-    println!("Timing: median of 5 runs (2 warmup)");
+    println!("Timing: median of {NUM_TIMED} runs ({NUM_WARMUP} warmup)");
 
     let strategies: &[PathStrategy] = &[
         ("opt_flops", |p| &p.opt_flops),
@@ -234,32 +255,34 @@ fn main() {
         println!();
         println!("Strategy: {strategy_name}");
         println!(
-            "{:<50} {:>8} {:>10} {:>12} {:>12}",
-            "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)"
+            "{:<50} {:>8} {:>10} {:>12} {:>12} {:>10}",
+            "Instance", "Tensors", "log10FLOPS", "log2SIZE", "Median (ms)", "IQR (ms)"
         );
-        println!("{}", "-".repeat(96));
+        println!("{}", "-".repeat(108));
 
         for instance in &instances {
             let path_meta = get_path(&instance.paths);
             match run_instance(instance, path_meta) {
-                Ok(median) => {
+                Ok(result) => {
                     println!(
-                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12.3}",
+                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12.3} {:>10.3}",
                         instance.name,
                         instance.num_tensors,
                         path_meta.log10_flops,
                         path_meta.log2_size,
-                        median.as_secs_f64() * 1e3,
+                        result.median_ms,
+                        result.iqr_ms(),
                     );
                 }
                 Err(e) => {
                     println!(
-                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12}",
+                        "{:<50} {:>8} {:>10.2} {:>12.2} {:>12} {:>10}",
                         instance.name,
                         instance.num_tensors,
                         path_meta.log10_flops,
                         path_meta.log2_size,
                         "SKIP",
+                        "-",
                     );
                     eprintln!("  -> {} (backend error: {e})", instance.name);
                 }
