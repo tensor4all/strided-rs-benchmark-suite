@@ -247,7 +247,7 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 
 ## Benchmark Results
 
-Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-13.
+Environment: Apple Silicon M2. Median time (ms) of 5 runs (2 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-18.
 
 ### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
@@ -257,15 +257,15 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **3909.438** | 4624.393 | - |
-| lm_batch_likelihood_brackets_4_4d | **16.477** | 19.697 | 18.540 |
-| lm_batch_likelihood_sentence_3_12d | **44.913** | 45.866 | 126.910 |
-| lm_batch_likelihood_sentence_4_4d | **17.978** | 20.065 | 28.439 |
-| str_matrix_chain_multiplication_100 | 11.283 | **10.876** | 13.443 |
-| str_mps_varying_inner_product_200 | **12.819** | 12.958 | 25.415 |
-| str_nw_mera_closed_120 | **1112.101** | 1115.165 | 1198.457 |
-| str_nw_mera_open_26 | 713.276 | **692.886** | 941.826 |
-| tensornetwork_permutation_light_415 | 431.115 | 462.084 | **320.959** |
+| gm_queen5_5_3.wcsp | **2914.003** | 3274.876 | - |
+| lm_batch_likelihood_brackets_4_4d | **17.957** | 19.444 | 83.676 |
+| lm_batch_likelihood_sentence_3_12d | **42.989** | 43.953 | 124.041 |
+| lm_batch_likelihood_sentence_4_4d | **16.236** | 17.711 | 17.443 |
+| str_matrix_chain_multiplication_100 | 10.487 | **9.683** | 14.220 |
+| str_mps_varying_inner_product_200 | **11.353** | 12.622 | 15.950 |
+| str_nw_mera_closed_120 | 1092.757 | **1064.342** | 1177.596 |
+| str_nw_mera_open_26 | 700.645 | **687.564** | 904.877 |
+| tensornetwork_permutation_light_415 | 353.578 | 359.447 | **315.407** |
 
 #### Strategy: opt_size
 
@@ -273,15 +273,15 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **1659.044** | 1838.440 | - |
-| lm_batch_likelihood_brackets_4_4d | 18.340 | 25.877 | **17.551** |
-| lm_batch_likelihood_sentence_3_12d | **45.426** | 49.881 | 119.310 |
-| lm_batch_likelihood_sentence_4_4d | 24.433 | 31.064 | **18.197** |
-| str_matrix_chain_multiplication_100 | 11.802 | **11.051** | 13.599 |
-| str_mps_varying_inner_product_200 | **12.049** | 14.176 | 15.921 |
-| str_nw_mera_closed_120 | 1115.546 | 1165.181 | **1089.035** |
-| str_nw_mera_open_26 | 741.441 | **712.961** | 920.337 |
-| tensornetwork_permutation_light_415 | 429.981 | 437.271 | **251.345** |
+| gm_queen5_5_3.wcsp | **1123.268** | 1200.707 | - |
+| lm_batch_likelihood_brackets_4_4d | **14.893** | 18.629 | 17.223 |
+| lm_batch_likelihood_sentence_3_12d | 44.225 | **42.683** | 49.145 |
+| lm_batch_likelihood_sentence_4_4d | 19.889 | 21.416 | **19.815** |
+| str_matrix_chain_multiplication_100 | 11.250 | **9.529** | 13.121 |
+| str_mps_varying_inner_product_200 | **11.530** | 12.399 | 14.486 |
+| str_nw_mera_closed_120 | 1068.812 | **1042.202** | 1144.693 |
+| str_nw_mera_open_26 | 726.021 | **695.404** | 1643.675 |
+| tensornetwork_permutation_light_415 | 359.409 | 359.234 | **275.502** |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -291,15 +291,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **3717.684** | 4316.493 | - |
-| lm_batch_likelihood_brackets_4_4d | **13.753** | 17.944 | 41.719 |
-| lm_batch_likelihood_sentence_3_12d | **22.004** | 29.563 | 57.204 |
-| lm_batch_likelihood_sentence_4_4d | **15.006** | 16.813 | 23.490 |
-| str_matrix_chain_multiplication_100 | **7.230** | 7.636 | 11.643 |
-| str_mps_varying_inner_product_200 | **12.333** | 13.853 | 15.864 |
-| str_nw_mera_closed_120 | 407.948 | **382.320** | 428.137 |
-| str_nw_mera_open_26 | **232.624** | 233.589 | 385.218 |
-| tensornetwork_permutation_light_415 | 350.540 | 370.352 | **140.298** |
+| gm_queen5_5_3.wcsp | 3270.236 | **2938.746** | - |
+| lm_batch_likelihood_brackets_4_4d | **16.733** | 17.697 | 40.166 |
+| lm_batch_likelihood_sentence_3_12d | **22.592** | 23.388 | 51.360 |
+| lm_batch_likelihood_sentence_4_4d | **13.987** | 14.964 | 14.580 |
+| str_matrix_chain_multiplication_100 | **7.922** | 8.220 | 8.640 |
+| str_mps_varying_inner_product_200 | **12.969** | 16.495 | 20.502 |
+| str_nw_mera_closed_120 | 387.420 | **366.526** | 388.265 |
+| str_nw_mera_open_26 | 228.161 | **220.955** | 334.605 |
+| tensornetwork_permutation_light_415 | 284.769 | 289.268 | **142.241** |
 
 #### Strategy: opt_size
 
@@ -307,16 +307,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1411.696 | **1348.543** | - |
-| lm_batch_likelihood_brackets_4_4d | **16.525** | 20.098 | 22.070 |
-| lm_batch_likelihood_sentence_3_12d | **21.909** | 23.496 | 28.303 |
-| lm_batch_likelihood_sentence_4_4d | 20.697 | 24.764 | **14.026** |
-| str_matrix_chain_multiplication_100 | **6.528** | 8.496 | 9.237 |
-| str_mps_varying_inner_product_200 | **13.059** | 16.165 | 16.498 |
-| str_nw_mera_closed_120 | 364.410 | **356.070** | 375.048 |
-| str_nw_mera_open_26 | **237.074** | 240.649 | 394.381 |
-| tensornetwork_permutation_light_415 | 352.009 | 360.191 | **134.409** |
-
+| gm_queen5_5_3.wcsp | 902.408 | **825.216** | - |
+| lm_batch_likelihood_brackets_4_4d | **13.329** | 16.229 | 15.052 |
+| lm_batch_likelihood_sentence_3_12d | **21.335** | 22.751 | 46.552 |
+| lm_batch_likelihood_sentence_4_4d | 17.250 | 19.023 | **16.177** |
+| str_matrix_chain_multiplication_100 | **7.570** | 7.949 | 9.968 |
+| str_mps_varying_inner_product_200 | **13.014** | 16.518 | 14.301 |
+| str_nw_mera_closed_120 | 355.810 | **344.613** | 349.087 |
+| str_nw_mera_open_26 | **230.095** | 230.225 | 368.419 |
+| tensornetwork_permutation_light_415 | 280.827 | 289.679 | **119.057** |
 
 **Notes:**
 - `-` in tables indicates the instance was skipped (e.g. strided-opteinsum skips operands with duplicate axis labels). Skipped instances are printed as **SKIP** with the reason on stderr.
