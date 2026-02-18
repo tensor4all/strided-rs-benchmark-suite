@@ -8,6 +8,10 @@ default = ["faer"]
 faer = ["strided-opteinsum/faer"]
 blas = ["strided-opteinsum/blas"]
 
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+
 [dependencies]
 strided-opteinsum = { path = "../strided-rs/strided-opteinsum", default-features = false }
 strided-view = { path = "../strided-rs/strided-view" }
