@@ -204,6 +204,24 @@ function main()
     strategies = ["opt_flops", "opt_size"]
     modes = [:omeinsum_path]  # same pre-computed path as Rust
 
+    # Global JIT warmup: run every (mode, strategy, instance) once so that all
+    # code paths are compiled before any timed measurement begins.  This avoids
+    # systematic bias where the first strategy appears slower due to JIT.
+    print("JIT warmup (untimed)...")
+    for mode in modes, strategy in strategies, instance in instances
+        format_str = instance["format_string_colmajor"]
+        shapes = [Tuple(s) for s in instance["shapes_colmajor"]]
+        dtype = instance["dtype"]
+        path = [Tuple(p) for p in instance["paths"][strategy]["path"]]
+        input_indices, output_indices = parse_format_string(format_str)
+        tensors = create_tensors(shapes, dtype)
+        try
+            run_with_path(tensors, input_indices, output_indices, path)
+        catch
+        end
+    end
+    println(" done")
+
     for mode in modes
         for strategy in strategies
             println()

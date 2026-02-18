@@ -96,7 +96,7 @@ echo "============================================"
 JULIA_LOG="$RESULTS_DIR/julia_t${NUM_THREADS}_${TIMESTAMP}.log"
 
 echo "Running Julia benchmark..."
-julia --project="$PROJECT_DIR" "$PROJECT_DIR/src/main.jl" 2>&1 | tee "$JULIA_LOG"
+julia --startup-file=no --project="$PROJECT_DIR" "$PROJECT_DIR/src/main.jl" 2>&1 | tee "$JULIA_LOG"
 
 echo ""
 echo "Julia results saved to: $JULIA_LOG"

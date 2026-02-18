@@ -342,6 +342,46 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 - **strided-rs faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM). **strided-rs OpenBLAS** uses OpenBLAS via `cblas-sys`.
 - **strided-rs** and **OMEinsum.jl** (omeinsum_path mode) use the same pre-computed contraction path for fair comparison.
 
+---
+
+Environment: AMD EPYC 7713P (64-Core, Zen 3). Median time (ms) of 5 runs (2 warmup). Julia 1.12.5, BLAS: lbt. OpenBLAS 0.3.29. Run date: 2026-02-18.
+
+### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
+
+#### Strategy: opt_flops
+
+Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
+
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | 5919.573 | **5999.208** | - |
+| lm_batch_likelihood_brackets_4_4d | **22.975** | 25.700 | 32.284 |
+| lm_batch_likelihood_sentence_3_12d | **69.528** | 82.380 | 94.993 |
+| lm_batch_likelihood_sentence_4_4d | **21.906** | 26.137 | 38.807 |
+| str_matrix_chain_multiplication_100 | **12.317** | 13.532 | 16.858 |
+| str_mps_varying_inner_product_200 | **13.423** | 17.408 | 43.322 |
+| str_nw_mera_closed_120 | 1462.853 | **1438.245** | 1683.529 |
+| str_nw_mera_open_26 | 972.004 | **954.209** | 1482.049 |
+| tensornetwork_permutation_focus_step409_316 | **397.322** | 434.429 | 529.964 |
+| tensornetwork_permutation_light_415 | **403.403** | 434.480 | 524.745 |
+
+#### Strategy: opt_size
+
+Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
+
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | 1906.337 | **1896.952** | - |
+| lm_batch_likelihood_brackets_4_4d | **19.266** | 25.810 | 42.568 |
+| lm_batch_likelihood_sentence_3_12d | **52.479** | 64.918 | 79.992 |
+| lm_batch_likelihood_sentence_4_4d | **22.908** | 31.294 | 48.015 |
+| str_matrix_chain_multiplication_100 | 12.362 | **12.332** | 15.989 |
+| str_mps_varying_inner_product_200 | **12.628** | 16.730 | 26.669 |
+| str_nw_mera_closed_120 | 1275.340 | **1221.576** | 1468.793 |
+| str_nw_mera_open_26 | 941.262 | **933.868** | 1455.038 |
+| tensornetwork_permutation_focus_step409_316 | **389.019** | 415.457 | 514.586 |
+| tensornetwork_permutation_light_415 | **396.089** | 430.644 | 529.746 |
+
 ## References
 
 - [Einsum Benchmark](https://benchmark.einsum.org/) — standardized einsum benchmark suite
