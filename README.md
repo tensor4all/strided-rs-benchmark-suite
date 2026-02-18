@@ -98,6 +98,20 @@ uv run python scripts/create_lightweight_instance.py \
 
 The script finds a BFS-connected subset of the given size with minimal free indices, sets the output to scalar, and computes an optimized contraction path via `opt_einsum`.
 
+**Optional: Focus on the dominant late contraction steps (step408/step409)**
+
+For kernel-level profiling of the most expensive region in `tensornetwork_permutation_light_415`, this repo also includes:
+
+- `data/instances/tensornetwork_permutation_focus_step409_316.json`
+
+This instance is extracted from the original 415-tensor contraction tree by taking the subtree that ends at original **step 409**. It preserves the expensive late-stage structure (original step 408 and 409), while reducing total tree size from 415 to 316 tensors for faster iteration. Unlike the lightweight scalar instance, this focused instance has a non-scalar output (rank-18), because it represents an internal contraction state.
+
+Use it when you want to benchmark or profile the bottleneck contraction kernels directly:
+
+```bash
+BENCH_INSTANCE=tensornetwork_permutation_focus_step409_316 ./scripts/run_all.sh 1
+```
+
 **Selection criteria (per category):**
 
 | Category | Prefix | log10[FLOPS] | log2[SIZE] | num_tensors | dtype |
@@ -123,7 +137,7 @@ Instance JSON files that fail to read or parse are skipped with a warning; the s
 
 ### 3. Run a single instance
 
-To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`, `tensornetwork_permutation_optimized`) or lighter tensor network tests (e.g. `tensornetwork_permutation_light_415`) or to avoid timeouts.
+To run the benchmark for **one instance only**, set the environment variable `BENCH_INSTANCE` to the instance name. Useful for heavy instances (e.g. `gm_queen5_5_3.wcsp`, `str_nw_mera_closed_120`, `tensornetwork_permutation_optimized`), lighter tensor network tests (e.g. `tensornetwork_permutation_light_415`), or focused bottleneck testing (e.g. `tensornetwork_permutation_focus_step409_316`).
 
 **With the full script (Rust + Julia):**
 
@@ -131,6 +145,7 @@ To run the benchmark for **one instance only**, set the environment variable `BE
 BENCH_INSTANCE=str_nw_mera_closed_120 ./scripts/run_all.sh 1
 BENCH_INSTANCE=gm_queen5_5_3.wcsp ./scripts/run_all.sh 4
 BENCH_INSTANCE=tensornetwork_permutation_light_415 ./scripts/run_all.sh 1 1
+BENCH_INSTANCE=tensornetwork_permutation_focus_step409_316 ./scripts/run_all.sh 1
 ```
 
 **Rust or Julia alone:**
@@ -240,6 +255,7 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 | `str_nw_mera_closed_120` | Structured (MERA) | 120 | 2D | 3×3, etc. | 119 | 10.66 | 25.02 |
 | `str_nw_mera_open_26` | Structured (MERA) | 26 | 2D | 3×3, etc. | 25 | 10.49 | 25.36 |
 | `tensornetwork_permutation_light_415` | Tensor network | 415 | 2D | 2×2 (uniform) | 414 | 9.65 | 24.0 |
+| `tensornetwork_permutation_focus_step409_316` | Tensor network (focused) | 316 | 2D | 2×2 (uniform) | 315 | 9.65 | 24.0 |
 
 - **Graphical model (gm_*)**: e.g. WCSP / constraint networks; many small 2D factors (e.g. 3×3), full contraction to scalar.
 - **Language model (lm_*)**: many small multi-dimensional tensors (3D/4D) with large batch dimensions; many steps with small GEMM kernels.
@@ -247,6 +263,7 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 - **Structured — MPS (str_mps_*)**: matrix product state–style networks; varying inner dimensions, many 2D contractions.
 - **Structured — MERA (str_nw_mera_*)**: tensor networks from multi-scale entanglement renormalization; many small 3×3-like tensors, heavy contraction.
 - **Tensor network (tensornetwork_permutation_light_415)**: lightweight variant (~5 s vs ~40 s); 415 tensors extracted from the full instance via BFS-connected subgraph. Create via `scripts/create_lightweight_instance.py` (see [Optional: Create a lightweight tensor network instance](#optional-create-a-lightweight-tensor-network-instance)).
+- **Tensor network focused (tensornetwork_permutation_focus_step409_316)**: focused subtree instance for profiling original late bottleneck steps (408/409). Contains 316 tensors and keeps the high-cost intermediate (`log2_size = 24`) while reducing total contractions.
 
 ## Benchmark Results
 
