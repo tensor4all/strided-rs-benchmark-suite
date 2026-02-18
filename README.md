@@ -260,15 +260,15 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **2486.851** | 2889.369 | - |
-| lm_batch_likelihood_brackets_4_4d | **17.315** | 19.413 | 93.593 |
-| lm_batch_likelihood_sentence_3_12d | **44.579** | 46.097 | 125.040 |
-| lm_batch_likelihood_sentence_4_4d | **16.213** | 17.353 | 26.967 |
-| str_matrix_chain_multiplication_100 | 11.990 | **10.189** | 13.444 |
-| str_mps_varying_inner_product_200 | **12.076** | 12.941 | 16.727 |
-| str_nw_mera_closed_120 | 1090.343 | **1072.371** | 1310.884 |
-| str_nw_mera_open_26 | 714.563 | **692.924** | 948.953 |
-| tensornetwork_permutation_light_415 | **276.803** | 284.467 | 328.878 |
+| gm_queen5_5_3.wcsp | **2439.828** | 2870.273 | - |
+| lm_batch_likelihood_brackets_4_4d | **15.831** | 19.686 | 25.897 |
+| lm_batch_likelihood_sentence_3_12d | **42.254** | 46.783 | 120.055 |
+| lm_batch_likelihood_sentence_4_4d | **15.437** | 17.164 | 18.306 |
+| str_matrix_chain_multiplication_100 | 10.432 | **10.091** | 12.865 |
+| str_mps_varying_inner_product_200 | **11.306** | 12.531 | 26.518 |
+| str_nw_mera_closed_120 | 1071.641 | **1061.423** | 1176.028 |
+| str_nw_mera_open_26 | 693.368 | **681.673** | 904.978 |
+| tensornetwork_permutation_light_415 | 280.882 | 276.804 | **245.575** |
 
 #### Strategy: opt_size
 
@@ -276,15 +276,15 @@ Median time (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **967.169** | 1051.165 | - |
-| lm_batch_likelihood_brackets_4_4d | **14.978** | 18.628 | 17.703 |
-| lm_batch_likelihood_sentence_3_12d | 46.112 | **43.637** | 98.701 |
-| lm_batch_likelihood_sentence_4_4d | 19.323 | 20.556 | **18.036** |
-| str_matrix_chain_multiplication_100 | 11.839 | **9.809** | 13.032 |
-| str_mps_varying_inner_product_200 | **11.726** | 12.608 | 23.800 |
-| str_nw_mera_closed_120 | 1062.185 | **1042.012** | 1079.318 |
-| str_nw_mera_open_26 | 766.295 | **699.179** | 913.311 |
-| tensornetwork_permutation_light_415 | 299.808 | 282.646 | **244.616** |
+| gm_queen5_5_3.wcsp | **946.145** | 1033.479 | - |
+| lm_batch_likelihood_brackets_4_4d | **14.604** | 17.434 | 17.312 |
+| lm_batch_likelihood_sentence_3_12d | **42.733** | 43.433 | 47.976 |
+| lm_batch_likelihood_sentence_4_4d | **17.672** | 22.148 | 19.386 |
+| str_matrix_chain_multiplication_100 | 10.397 | **9.784** | 13.025 |
+| str_mps_varying_inner_product_200 | **10.883** | 12.903 | 14.952 |
+| str_nw_mera_closed_120 | 1059.629 | **1016.427** | 1076.297 |
+| str_nw_mera_open_26 | 700.474 | **678.898** | 907.389 |
+| tensornetwork_permutation_light_415 | 276.244 | 279.680 | **246.823** |
 
 ### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
@@ -294,15 +294,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 2715.143 | **2483.677** | - |
-| lm_batch_likelihood_brackets_4_4d | **14.182** | 15.911 | 39.052 |
-| lm_batch_likelihood_sentence_3_12d | **21.110** | 23.128 | 50.823 |
-| lm_batch_likelihood_sentence_4_4d | **12.861** | 14.091 | 34.531 |
-| str_matrix_chain_multiplication_100 | **7.680** | 8.127 | 8.853 |
-| str_mps_varying_inner_product_200 | **12.198** | 16.186 | 21.647 |
-| str_nw_mera_closed_120 | 353.871 | **349.732** | 383.591 |
-| str_nw_mera_open_26 | **216.655** | 226.204 | 358.744 |
-| tensornetwork_permutation_light_415 | 203.416 | 210.619 | **126.509** |
+| gm_queen5_5_3.wcsp | 2677.523 | **2491.034** | - |
+| lm_batch_likelihood_brackets_4_4d | **13.878** | 16.252 | 39.185 |
+| lm_batch_likelihood_sentence_3_12d | **20.489** | 23.058 | 51.164 |
+| lm_batch_likelihood_sentence_4_4d | **12.541** | 14.356 | 18.913 |
+| str_matrix_chain_multiplication_100 | **7.285** | 8.187 | 9.399 |
+| str_mps_varying_inner_product_200 | **11.882** | 16.030 | 21.788 |
+| str_nw_mera_closed_120 | 359.700 | **350.981** | 375.137 |
+| str_nw_mera_open_26 | 240.734 | **217.174** | 334.266 |
+| tensornetwork_permutation_light_415 | 205.672 | 209.136 | **143.074** |
 
 #### Strategy: opt_size
 
@@ -310,16 +310,15 @@ Median time (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 720.413 | **653.054** | - |
-| lm_batch_likelihood_brackets_4_4d | **12.602** | 16.156 | 14.607 |
-| lm_batch_likelihood_sentence_3_12d | **20.526** | 22.226 | 53.893 |
-| lm_batch_likelihood_sentence_4_4d | 15.608 | 17.411 | **14.321** |
-| str_matrix_chain_multiplication_100 | **7.245** | 8.078 | 17.279 |
-| str_mps_varying_inner_product_200 | **12.276** | 16.732 | 13.207 |
-| str_nw_mera_closed_120 | 333.637 | **327.457** | 345.510 |
-| str_nw_mera_open_26 | **219.824** | 223.179 | 342.820 |
-| tensornetwork_permutation_light_415 | 205.456 | 211.536 | **120.855** |
-
+| gm_queen5_5_3.wcsp | 733.427 | **662.483** | - |
+| lm_batch_likelihood_brackets_4_4d | **12.748** | 16.452 | 14.286 |
+| lm_batch_likelihood_sentence_3_12d | **21.298** | 23.182 | 52.248 |
+| lm_batch_likelihood_sentence_4_4d | 15.263 | 17.717 | **15.131** |
+| str_matrix_chain_multiplication_100 | **7.597** | 8.023 | 8.332 |
+| str_mps_varying_inner_product_200 | **12.362** | 15.989 | 16.023 |
+| str_nw_mera_closed_120 | 334.867 | **334.405** | 344.857 |
+| str_nw_mera_open_26 | 222.899 | **221.418** | 368.285 |
+| tensornetwork_permutation_light_415 | 204.474 | 206.253 | **115.722** |
 
 **Notes:**
 - `-` in tables indicates the instance was skipped (e.g. strided-opteinsum skips operands with duplicate axis labels). Skipped instances are printed as **SKIP** with the reason on stderr.
