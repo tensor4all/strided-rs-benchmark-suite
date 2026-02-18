@@ -109,11 +109,15 @@ The script finds a BFS-connected subset of the given size with minimal free indi
 ### 2. Run all benchmarks
 
 ```bash
-./scripts/run_all.sh        # 1 thread (default)
-./scripts/run_all.sh 4      # 4 threads
+./scripts/run_all.sh          # 1 thread (default), canonical ids off
+./scripts/run_all.sh 4        # 4 threads, canonical ids off
+./scripts/run_all.sh 1 1      # 1 thread, canonical [lo, ro, batch] ids on
 ```
 
-Runs Rust (faer + blas) and Julia benchmarks. The argument sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, and `JULIA_NUM_THREADS`. If OpenBLAS is not installed, the blas benchmark is skipped with a warning. Results are saved to `data/results/`. To run only one instance, see [Run a single instance](#3-run-a-single-instance) below.
+Runs Rust (faer + blas) and Julia benchmarks.
+- First argument sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, and `JULIA_NUM_THREADS`.
+- Second argument sets `STRIDED_OPTEINSUM_CANONICAL_BINARY_IDS` (`0` or `1`).
+If OpenBLAS is not installed, the blas benchmark is skipped with a warning. Results are saved to `data/results/`. To run only one instance, see [Run a single instance](#3-run-a-single-instance) below.
 
 Instance JSON files that fail to read or parse are skipped with a warning; the suite continues with the rest. Instances that trigger a backend error (e.g. duplicate axis labels in strided-opteinsum) are reported as **SKIP** in the table with the reason on stderr.
 
@@ -126,6 +130,7 @@ To run the benchmark for **one instance only**, set the environment variable `BE
 ```bash
 BENCH_INSTANCE=str_nw_mera_closed_120 ./scripts/run_all.sh 1
 BENCH_INSTANCE=gm_queen5_5_3.wcsp ./scripts/run_all.sh 4
+BENCH_INSTANCE=tensornetwork_permutation_light_415 ./scripts/run_all.sh 1 1
 ```
 
 **Rust or Julia alone:**
@@ -163,6 +168,26 @@ Julia benchmark modes:
 - **omeinsum_path** — follows the same pre-computed contraction path as Rust (fair kernel-level comparison)
 - **omeinsum_opt** — OMEinsum.jl with `optimize_code` and `TreeSA()` (optimizer-chosen path)
 
+### 5. Profiling
+
+**CPU flamegraph** (requires `cargo install flamegraph`):
+
+```bash
+BENCH_INSTANCE=tensornetwork_permutation_light_415 RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  cargo flamegraph --profile release-with-debug -o flamegraph.svg --no-default-features --features faer
+```
+
+Opens an interactive SVG showing where CPU time is spent. On macOS, uses `xctrace`; on Linux, uses `perf`.
+
+**Internal profiler** (plan/bgemm/buffer stats):
+
+```bash
+BENCH_INSTANCE=tensornetwork_permutation_light_415 STRIDED_EINSUM2_PROFILE=1 \
+  RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 cargo run --release --no-default-features --features faer
+```
+
+Prints `plan_calls`, `bgemm_calls`, `in_buf_calls`, `out_writeback_calls`, etc. to stderr.
+
 ### Row-major to Column-major Conversion
 
 NumPy arrays are row-major (C order). strided-rs uses column-major (Fortran order). The conversion is metadata-only:
@@ -177,13 +202,14 @@ Both the original (`format_string`, `shapes`) and converted (`format_string_colm
 Run all benchmarks (Rust faer + Rust blas + Julia):
 
 ```bash
-./scripts/run_all.sh        # 1 thread
-./scripts/run_all.sh 4      # 4 threads
+./scripts/run_all.sh        # 1 thread, canonical ids off
+./scripts/run_all.sh 4      # 4 threads, canonical ids off
+./scripts/run_all.sh 1 1    # 1 thread, canonical ids on
 ```
 
 This script:
 
-1. Sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, `JULIA_NUM_THREADS` to the given thread count (default: 1)
+1. Sets `OMP_NUM_THREADS`, `RAYON_NUM_THREADS`, `JULIA_NUM_THREADS` to the given thread count (default: 1) and `STRIDED_OPTEINSUM_CANONICAL_BINARY_IDS` (default: 0)
 2. Builds and runs the Rust benchmark with the **faer** backend
 3. Builds and runs the Rust benchmark with the **blas** (OpenBLAS) backend (skipped if OpenBLAS is not installed)
 4. Runs the Julia benchmark (`julia --project=. src/main.jl`)
