@@ -1159,6 +1159,7 @@ dependencies = [
  "faer-traits",
  "num-complex",
  "num-traits",
+ "rayon",
  "strided-kernel",
  "strided-perm",
  "strided-traits",
@@ -1204,7 +1205,9 @@ dependencies = [
  "num-complex",
  "serde",
  "serde_json",
+ "strided-einsum2",
  "strided-opteinsum",
+ "strided-perm",
  "strided-view",
 ]
 
