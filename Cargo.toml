@@ -5,8 +5,9 @@ edition = "2021"
 
 [features]
 default = ["faer"]
-faer = ["strided-opteinsum/faer"]
-blas = ["strided-opteinsum/blas"]
+faer = ["strided-opteinsum/faer", "strided-einsum2/faer"]
+parallel = ["strided-opteinsum/parallel", "strided-einsum2/parallel"]
+blas = ["strided-opteinsum/blas", "strided-einsum2/blas"]
 
 [profile.release-with-debug]
 inherits = "release"
@@ -14,7 +15,13 @@ debug = true
 
 [dependencies]
 strided-opteinsum = { path = "../strided-rs/strided-opteinsum", default-features = false }
+strided-einsum2 = { path = "../strided-rs/strided-einsum2", default-features = false }
 strided-view = { path = "../strided-rs/strided-view" }
+strided-perm = { path = "../strided-rs/strided-perm" }
 num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[[bin]]
+name = "step408_bench"
+path = "micro_bench/step408_bench.rs"
