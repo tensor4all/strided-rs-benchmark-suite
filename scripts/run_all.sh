@@ -13,6 +13,13 @@ set -euo pipefail
 #
 # Rust benchmarks are run twice: with "faer" and "blas" backends.
 # The blas backend requires OpenBLAS (brew install openblas on macOS).
+#
+# IMPORTANT: On Linux, set OPENBLAS_LIB_DIR and LD_LIBRARY_PATH to a
+# recent OpenBLAS (>= 0.3.29). The system libopenblas-dev on Ubuntu 20.04
+# is 0.3.8, which is ~2x slower than Julia's bundled 0.3.29 on AMD EPYC.
+# Example:
+#   export OPENBLAS_LIB_DIR=$HOME/opt/openblas-0.3.29/lib
+#   export LD_LIBRARY_PATH=$HOME/opt/openblas-0.3.29/lib:$LD_LIBRARY_PATH
 # ---------------------------------------------------------------------------
 
 NUM_THREADS="${1:-1}"
@@ -24,6 +31,16 @@ export JULIA_NUM_THREADS="$NUM_THREADS"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 RESULTS_DIR="$PROJECT_DIR/data/results"
+
+# ---------------------------------------------------------------------------
+# Auto-detect custom OpenBLAS at $HOME/opt/openblas-0.3.29
+# ---------------------------------------------------------------------------
+CUSTOM_OPENBLAS="$HOME/opt/openblas-0.3.29/lib"
+if [ -z "${OPENBLAS_LIB_DIR:-}" ] && [ -d "$CUSTOM_OPENBLAS" ]; then
+    export OPENBLAS_LIB_DIR="$CUSTOM_OPENBLAS"
+    export LD_LIBRARY_PATH="${CUSTOM_OPENBLAS}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    echo "Auto-detected OpenBLAS 0.3.29 at $CUSTOM_OPENBLAS"
+fi
 
 mkdir -p "$RESULTS_DIR"
 

@@ -44,3 +44,20 @@ NumPy is row-major; strided-rs and Julia are column-major. JSON files contain bo
 
 ### Contraction path format
 Paths follow the opt_einsum/cotengra convention: each step `[i, j]` contracts tensors at those indices in the current list. Higher index is removed first, then lower; result is appended to end. Two strategies are benchmarked: `opt_flops` and `opt_size`.
+
+## OpenBLAS Version Requirement
+
+**Do NOT use the system OpenBLAS (apt install libopenblas-dev) for benchmarking.** It is too old (0.3.8 on Ubuntu 20.04) and ~2x slower than Julia's bundled version on AMD EPYC. Use OpenBLAS >= 0.3.29.
+
+See [`docs/environment-setup.md`](docs/environment-setup.md) for installation and configuration details.
+
+## Benchmark Execution Rules
+
+**NEVER run multiple benchmarks concurrently.** Benchmark runs must be executed sequentially (one at a time). Running 1T and 4T benchmarks in parallel causes CPU resource contention and produces unreliable results.
+
+## Benchmark Results Guidelines
+
+When recording benchmark results in README.md, always include the OpenBLAS version for **both** strided-rs and OMEinsum.jl:
+
+- **strided-rs OpenBLAS**: Check with `ldd target/release/strided-rs-benchmark-suite | grep openblas` and verify the version in the library filename.
+- **OMEinsum.jl OpenBLAS**: Check with `julia -e 'using LinearAlgebra; println(BLAS.get_config())'`. The bundled version can be found at `~/.julia/juliaup/julia-<version>/lib/julia/libopenblas64_*.so`.
