@@ -1174,6 +1174,8 @@ dependencies = [
  "num-complex",
  "num-traits",
  "pulp",
+ "rayon",
+ "smallvec",
  "strided-perm",
  "strided-view",
 ]
@@ -1195,6 +1197,7 @@ dependencies = [
 name = "strided-perm"
 version = "0.1.0"
 dependencies = [
+ "rayon",
  "strided-view",
 ]
 
