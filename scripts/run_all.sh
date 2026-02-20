@@ -71,10 +71,10 @@ echo "============================================"
 RUST_FAER_LOG="$RESULTS_DIR/rust_faer_t${NUM_THREADS}_${TIMESTAMP}.log"
 
 echo "Building Rust (release, faer)..."
-cargo build --release --no-default-features --features faer --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1
+cargo build --release --no-default-features --features faer,parallel --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1
 
 echo "Running Rust benchmark (faer)..."
-cargo run --release --no-default-features --features faer --bin strided-rs-benchmark-suite --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1 | tee "$RUST_FAER_LOG"
+cargo run --release --no-default-features --features faer,parallel --bin strided-rs-benchmark-suite --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1 | tee "$RUST_FAER_LOG"
 
 echo ""
 echo "Rust (faer) results saved to: $RUST_FAER_LOG"
@@ -91,9 +91,9 @@ echo "============================================"
 RUST_BLAS_LOG="$RESULTS_DIR/rust_blas_t${NUM_THREADS}_${TIMESTAMP}.log"
 
 echo "Building Rust (release, blas)..."
-if cargo build --release --no-default-features --features blas --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1; then
+if cargo build --release --no-default-features --features blas,parallel --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1; then
     echo "Running Rust benchmark (blas)..."
-    cargo run --release --no-default-features --features blas --bin strided-rs-benchmark-suite --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1 | tee "$RUST_BLAS_LOG"
+    cargo run --release --no-default-features --features blas,parallel --bin strided-rs-benchmark-suite --manifest-path="$PROJECT_DIR/Cargo.toml" 2>&1 | tee "$RUST_BLAS_LOG"
     echo ""
     echo "Rust (blas) results saved to: $RUST_BLAS_LOG"
     RUST_LOGS+=("$RUST_BLAS_LOG")
