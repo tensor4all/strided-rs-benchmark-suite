@@ -375,87 +375,113 @@ Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 ### AMD EPYC 7713P
 
-Environment: AMD EPYC 7713P (64-Core, Zen 3). Median ± IQR (ms) of 15 runs (3 warmup). Rust OpenBLAS: 0.3.29 (local build). Julia 1.12.5, BLAS: lbt (OpenBLAS 0.3.29). Run date: 2026-02-20.
+Environment: AMD EPYC 7713P (64-Core, Zen 3). Median ± IQR (ms) of 15 runs (3 warmup). CPU pinned via `taskset` to same CCD (L3 domain 0: cores 0–7). Rust OpenBLAS: 0.3.29 (local build). Julia 1.12.5, BLAS: lbt (OpenBLAS 0.3.29). strided-rs: [`ea37986`](https://github.com/tensor4all/strided-rs/commit/ea37986). Run date: 2026-02-21.
 
-#### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
-
-##### Strategy: opt_flops
-
-Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
-
-| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
-|---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 5537.697 ± 45.135 | **5324.688 ± 135.417** | - |
-| lm_batch_likelihood_brackets_4_4d | **17.368 ± 2.215** | 18.763 ± 1.707 | 29.871 ± 42.715 |
-| lm_batch_likelihood_sentence_3_12d | **65.352 ± 4.420** | 74.242 ± 5.115 | 82.160 ± 77.071 |
-| lm_batch_likelihood_sentence_4_4d | **16.324 ± 1.464** | 22.961 ± 2.740 | 35.540 ± 4.936 |
-| str_matrix_chain_multiplication_100 | **11.516 ± 1.161** | 12.807 ± 1.214 | 16.436 ± 1.527 |
-| str_mps_varying_inner_product_200 | **11.975 ± 1.813** | 14.818 ± 1.250 | 27.053 ± 5.870 |
-| str_nw_mera_closed_120 | 1395.985 ± 30.376 | **1370.740 ± 12.609** | 1488.099 ± 40.482 |
-| str_nw_mera_open_26 | 909.086 ± 14.858 | **891.900 ± 12.933** | 1284.592 ± 75.551 |
-| tensornetwork_permutation_focus_step409_316 | **433.995 ± 7.424** | 456.124 ± 8.158 | 462.286 ± 73.367 |
-| tensornetwork_permutation_light_415 | **434.751 ± 4.536** | 457.964 ± 4.190 | 476.160 ± 79.239 |
-
-##### Strategy: opt_size
-
-Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
-
-| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
-|---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **1681.508 ± 14.145** | 1671.100 ± 10.409 | - |
-| lm_batch_likelihood_brackets_4_4d | **15.323 ± 1.682** | 19.528 ± 0.927 | 31.792 ± 4.406 |
-| lm_batch_likelihood_sentence_3_12d | **47.618 ± 3.064** | 58.805 ± 4.733 | 95.622 ± 86.318 |
-| lm_batch_likelihood_sentence_4_4d | **19.376 ± 2.779** | 25.622 ± 3.387 | 36.105 ± 4.797 |
-| str_matrix_chain_multiplication_100 | **11.890 ± 0.867** | 12.155 ± 1.397 | 16.972 ± 1.076 |
-| str_mps_varying_inner_product_200 | **11.761 ± 0.693** | 15.552 ± 0.201 | 24.292 ± 4.368 |
-| str_nw_mera_closed_120 | 1237.077 ± 12.789 | **1172.212 ± 22.763** | 1296.149 ± 33.795 |
-| str_nw_mera_open_26 | 916.477 ± 11.933 | **893.765 ± 13.125** | 1265.585 ± 57.818 |
-| tensornetwork_permutation_focus_step409_316 | **449.992 ± 8.882** | 460.593 ± 8.330 | 471.158 ± 76.847 |
-| tensornetwork_permutation_light_415 | **451.441 ± 13.424** | 452.876 ± 9.170 | 473.007 ± 83.423 |
-
-#### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
+#### 1 thread (`taskset -c 0`)
 
 ##### Strategy: opt_flops
 
-Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
-
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 6491.460 ± 111.296 | **4114.639 ± 57.824** | - |
-| lm_batch_likelihood_brackets_4_4d | 35.003 ± 5.908 | **21.033 ± 1.596** | 36.342 ± 26.072 |
-| lm_batch_likelihood_sentence_3_12d | 79.813 ± 6.737 | **52.578 ± 2.579** | 72.126 ± 55.662 |
-| lm_batch_likelihood_sentence_4_4d | 35.670 ± 1.568 | **23.602 ± 2.009** | 39.889 ± 4.459 |
-| str_matrix_chain_multiplication_100 | 18.607 ± 1.961 | **14.386 ± 0.736** | 15.849 ± 5.181 |
-| str_mps_varying_inner_product_200 | 43.818 ± 1.874 | **26.867 ± 2.413** | 30.827 ± 9.599 |
-| str_nw_mera_closed_120 | 856.928 ± 6.909 | **620.274 ± 19.162** | 907.198 ± 11.287 |
-| str_nw_mera_open_26 | 554.782 ± 2.985 | **357.109 ± 10.224** | 786.319 ± 54.526 |
-| tensornetwork_permutation_focus_step409_316 | 483.477 ± 21.691 | **355.615 ± 14.221** | 388.525 ± 22.756 |
-| tensornetwork_permutation_light_415 | 477.138 ± 21.357 | **355.189 ± 11.617** | 388.819 ± 23.382 |
+| gm_queen5_5_3.wcsp | 5580.061 ± 55.340 | **5401.830 ± 47.513** | - |
+| lm_batch_likelihood_brackets_4_4d | **17.239 ± 1.859** | 20.771 ± 1.466 | 29.845 ± 1.570 |
+| lm_batch_likelihood_sentence_3_12d | **67.371 ± 5.203** | 77.955 ± 2.621 | 97.359 ± 20.856 |
+| lm_batch_likelihood_sentence_4_4d | **17.928 ± 1.476** | 24.252 ± 1.081 | 35.284 ± 38.163 |
+| str_matrix_chain_multiplication_100 | **12.804 ± 1.074** | 14.127 ± 1.107 | 17.396 ± 40.098 |
+| str_mps_varying_inner_product_200 | **13.210 ± 0.956** | 15.925 ± 1.798 | 41.056 ± 70.141 |
+| str_nw_mera_closed_120 | 1446.066 ± 6.914 | **1428.330 ± 9.268** | 1555.513 ± 181.316 |
+| str_nw_mera_open_26 | 942.305 ± 25.243 | **921.522 ± 17.555** | 1309.899 ± 41.183 |
+| tensornetwork_permutation_focus_step409_316 | **437.128 ± 9.447** | 470.365 ± 7.069 | 516.757 ± 4.771 |
+| tensornetwork_permutation_light_415 | **447.583 ± 10.860** | 467.062 ± 10.766 | 519.872 ± 4.235 |
 
 ##### Strategy: opt_size
 
-Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | **1692.086 ± 24.120** | 1700.402 ± 25.158 | - |
+| lm_batch_likelihood_brackets_4_4d | **17.062 ± 1.233** | 21.720 ± 1.991 | 34.557 ± 9.437 |
+| lm_batch_likelihood_sentence_3_12d | **51.703 ± 3.573** | 62.269 ± 3.211 | 256.770 ± 170.132 |
+| lm_batch_likelihood_sentence_4_4d | **19.978 ± 1.678** | 27.441 ± 2.219 | 36.019 ± 42.593 |
+| str_matrix_chain_multiplication_100 | 12.951 ± 0.944 | **12.933 ± 0.901** | 18.268 ± 75.934 |
+| str_mps_varying_inner_product_200 | **13.551 ± 0.868** | 17.355 ± 1.329 | 36.992 ± 13.746 |
+| str_nw_mera_closed_120 | 1282.228 ± 21.226 | **1225.115 ± 10.019** | 1355.883 ± 17.972 |
+| str_nw_mera_open_26 | 943.912 ± 14.200 | **934.619 ± 12.021** | 1309.120 ± 89.740 |
+| tensornetwork_permutation_focus_step409_316 | **437.922 ± 5.051** | 468.172 ± 7.457 | 494.669 ± 5.075 |
+| tensornetwork_permutation_light_415 | **445.542 ± 9.662** | 472.461 ± 9.604 | 491.960 ± 9.025 |
+
+#### 4 threads (`taskset -c 0-3`)
+
+##### Strategy: opt_flops
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 1797.177 ± 75.937 | **1237.864 ± 20.780** | - |
-| lm_batch_likelihood_brackets_4_4d | 33.226 ± 2.685 | **22.060 ± 2.718** | 37.704 ± 2.242 |
-| lm_batch_likelihood_sentence_3_12d | 55.566 ± 3.212 | **37.245 ± 1.808** | 77.740 ± 54.195 |
-| lm_batch_likelihood_sentence_4_4d | 40.370 ± 3.605 | **29.752 ± 1.678** | 43.323 ± 2.809 |
-| str_matrix_chain_multiplication_100 | 18.155 ± 1.929 | **13.009 ± 1.498** | 15.406 ± 2.052 |
-| str_mps_varying_inner_product_200 | 28.319 ± 3.117 | **20.078 ± 2.219** | 26.125 ± 1.967 |
-| str_nw_mera_closed_120 | 653.923 ± 11.513 | **464.277 ± 13.885** | 691.290 ± 19.449 |
-| str_nw_mera_open_26 | 556.268 ± 9.222 | **360.748 ± 8.509** | 775.115 ± 40.166 |
-| tensornetwork_permutation_focus_step409_316 | 469.104 ± 20.256 | **352.028 ± 10.472** | 384.707 ± 35.756 |
-| tensornetwork_permutation_light_415 | 473.424 ± 12.774 | **353.143 ± 11.077** | 392.802 ± 32.123 |
+| gm_queen5_5_3.wcsp | 5512.784 ± 86.130 | **3992.797 ± 37.984** | - |
+| lm_batch_likelihood_brackets_4_4d | **16.078 ± 1.869** | 17.391 ± 1.153 | 28.501 ± 45.772 |
+| lm_batch_likelihood_sentence_3_12d | **41.998 ± 2.088** | 44.292 ± 1.188 | 45.954 ± 1.573 |
+| lm_batch_likelihood_sentence_4_4d | **15.635 ± 2.168** | 19.498 ± 2.522 | 62.263 ± 37.157 |
+| str_matrix_chain_multiplication_100 | **6.123 ± 2.618** | 9.920 ± 0.783 | 14.161 ± 53.199 |
+| str_mps_varying_inner_product_200 | **15.488 ± 0.801** | 19.116 ± 0.042 | 48.746 ± 78.943 |
+| str_nw_mera_closed_120 | 657.926 ± 10.324 | **602.683 ± 8.358** | 904.907 ± 120.875 |
+| str_nw_mera_open_26 | 406.797 ± 7.727 | **351.793 ± 4.958** | 820.224 ± 21.907 |
+| tensornetwork_permutation_focus_step409_316 | 391.689 ± 8.052 | **355.948 ± 5.827** | 478.484 ± 13.308 |
+| tensornetwork_permutation_light_415 | 392.532 ± 7.361 | **358.282 ± 5.811** | 480.983 ± 7.111 |
+
+##### Strategy: opt_size
+
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | 1479.842 ± 24.958 | **1226.907 ± 13.498** | - |
+| lm_batch_likelihood_brackets_4_4d | **15.696 ± 0.270** | 17.842 ± 0.177 | 62.620 ± 11.448 |
+| lm_batch_likelihood_sentence_3_12d | **31.610 ± 1.179** | 36.315 ± 0.499 | 263.916 ± 189.462 |
+| lm_batch_likelihood_sentence_4_4d | **17.918 ± 1.681** | 22.698 ± 0.228 | 67.977 ± 41.570 |
+| str_matrix_chain_multiplication_100 | **6.071 ± 0.057** | 9.543 ± 0.899 | 25.478 ± 85.027 |
+| str_mps_varying_inner_product_200 | **15.055 ± 1.423** | 16.503 ± 0.155 | 44.975 ± 12.542 |
+| str_nw_mera_closed_120 | 497.744 ± 17.759 | **461.474 ± 5.895** | 683.364 ± 43.011 |
+| str_nw_mera_open_26 | 414.631 ± 10.215 | **358.834 ± 5.199** | 819.899 ± 68.758 |
+| tensornetwork_permutation_focus_step409_316 | 392.074 ± 7.082 | **352.531 ± 7.305** | 378.413 ± 5.702 |
+| tensornetwork_permutation_light_415 | 396.933 ± 4.428 | **355.005 ± 8.554** | 381.927 ± 2.255 |
+
+#### 8 threads (`taskset -c 0-7`)
+
+##### Strategy: opt_flops
+
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | 5965.004 ± 110.575 | **3782.546 ± 52.632** | - |
+| lm_batch_likelihood_brackets_4_4d | **15.989 ± 0.126** | 18.307 ± 0.245 | 83.654 ± 10.822 |
+| lm_batch_likelihood_sentence_3_12d | **38.293 ± 1.894** | 38.537 ± 0.317 | 41.621 ± 43.829 |
+| lm_batch_likelihood_sentence_4_4d | **15.075 ± 0.248** | 19.392 ± 0.188 | 63.517 ± 47.558 |
+| str_matrix_chain_multiplication_100 | **9.870 ± 2.674** | 10.435 ± 0.118 | 11.153 ± 30.160 |
+| str_mps_varying_inner_product_200 | 20.818 ± 2.882 | **16.208 ± 0.094** | 37.386 ± 32.399 |
+| str_nw_mera_closed_120 | 565.986 ± 2.954 | **449.963 ± 0.789** | 798.578 ± 86.413 |
+| str_nw_mera_open_26 | 330.528 ± 1.863 | **247.799 ± 0.907** | 737.971 ± 55.092 |
+| tensornetwork_permutation_focus_step409_316 | 385.981 ± 6.197 | **343.721 ± 2.568** | 487.492 ± 36.500 |
+| tensornetwork_permutation_light_415 | 391.726 ± 8.114 | **343.222 ± 3.441** | 445.071 ± 78.367 |
+
+##### Strategy: opt_size
+
+| Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
+|---|---:|---:|---:|
+| gm_queen5_5_3.wcsp | 1638.325 ± 14.515 | **1151.342 ± 6.523** | - |
+| lm_batch_likelihood_brackets_4_4d | **14.910 ± 0.227** | 18.084 ± 0.213 | 70.936 ± 27.905 |
+| lm_batch_likelihood_sentence_3_12d | **25.754 ± 0.292** | 32.220 ± 0.346 | 137.867 ± 117.311 |
+| lm_batch_likelihood_sentence_4_4d | **18.174 ± 0.182** | 22.580 ± 0.150 | 69.235 ± 31.532 |
+| str_matrix_chain_multiplication_100 | 11.265 ± 2.975 | **6.431 ± 0.064** | 11.298 ± 36.080 |
+| str_mps_varying_inner_product_200 | **16.028 ± 0.418** | 16.607 ± 0.114 | 42.210 ± 22.552 |
+| str_nw_mera_closed_120 | 400.335 ± 3.110 | **313.646 ± 2.226** | 548.971 ± 56.314 |
+| str_nw_mera_open_26 | 337.987 ± 1.216 | **255.177 ± 1.293** | 704.828 ± 81.067 |
+| tensornetwork_permutation_focus_step409_316 | 388.465 ± 3.823 | **342.513 ± 2.243** | 463.811 ± 45.327 |
+| tensornetwork_permutation_light_415 | 389.834 ± 5.560 | **338.575 ± 7.816** | 427.575 ± 30.165 |
 
 **Notes:**
+- All benchmarks pinned to cores within the same CCD (L3 domain) via `taskset`. Without pinning, rayon threads migrate across CCDs on AMD EPYC, causing up to 24% performance degradation due to L3 cache misses.
 - **strided-rs OpenBLAS** uses OpenBLAS 0.3.29 (locally built, see [Setup](#rust)). **strided-rs faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM).
 - **OMEinsum.jl** uses OpenBLAS 0.3.29 bundled with Julia 1.12.5 via libblastrampoline (lbt).
 - `gm_queen5_5_3.wcsp` skipped by Julia due to a `MethodError` (3D tensor not supported by Matrix constructor).
 - At 1T, **faer outperforms blas** on most instances due to lower per-call overhead for small GEMMs, while **blas leads on large MERA instances** where GEMM size is larger.
-- At 4T, **blas (OpenBLAS 0.3.29) outperforms both faer and OMEinsum.jl** on all instances. OpenBLAS internal threading (OMP_NUM_THREADS=4) provides significant speedups, especially on MERA instances (e.g. `str_nw_mera_open_26`: blas 357ms vs faer 555ms vs Julia 786ms).
-- faer 4T shows regression on `gm_queen5_5_3.wcsp` (6491ms vs 5538ms at 1T) due to threading overhead on many small GEMMs.
+- At 4T/8T, **blas (OpenBLAS 0.3.29) outperforms both faer and OMEinsum.jl** on GEMM-heavy instances. OpenBLAS internal threading provides strong scaling (e.g. `str_nw_mera_open_26`: 1T 922ms → 4T 352ms → 8T 248ms). **faer still leads on small-GEMM workloads** (lm, str_matrix_chain) even at 4T/8T.
+- **OMEinsum.jl degrades at 4T/8T** on several instances (e.g. `lm_brackets` 1T: 30ms → 8T: 84ms). This is likely because Julia's `permutedims!` is not parallelized, so tensor permutation becomes a serial bottleneck while BLAS threads compete for cache.
+- faer 4T/8T shows regression on `gm_queen5_5_3.wcsp` (5580ms → 5965ms at 8T) due to rayon threading overhead on many small GEMMs with negligible parallelizable work.
 
 ## References
 
