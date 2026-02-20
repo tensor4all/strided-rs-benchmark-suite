@@ -285,11 +285,16 @@ Instances are from the [einsum benchmark](https://benchmark.einsum.org/) suite. 
 
 ## Benchmark Results
 
+- [Apple Silicon M2](#apple-silicon-m2)
+- [AMD EPYC 7713P](#amd-epyc-7713p)
+
+### Apple Silicon M2
+
 Environment: Apple Silicon M2. Median ± IQR (ms) of 15 runs (3 warmup). Julia BLAS: OpenBLAS (lbt). Run date: 2026-02-19.
 
-### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
+#### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
-#### Strategy: opt_flops
+##### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
@@ -306,7 +311,7 @@ Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 | tensornetwork_permutation_focus_step409_316 | **169.680 ± 3.082** | 189.348 ± 34.369 | 246.726 ± 81.376 |
 | tensornetwork_permutation_light_415 | **172.845 ± 3.484** | 179.838 ± 5.402 | 248.408 ± 84.455 |
 
-#### Strategy: opt_size
+##### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
@@ -323,9 +328,9 @@ Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 | tensornetwork_permutation_focus_step409_316 | **172.317 ± 3.458** | 179.844 ± 15.151 | 247.999 ± 88.427 |
 | tensornetwork_permutation_light_415 | **171.573 ± 3.874** | 174.626 ± 1.372 | 248.293 ± 84.110 |
 
-### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
+#### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
-#### Strategy: opt_flops
+##### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
@@ -342,7 +347,7 @@ Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 | tensornetwork_permutation_focus_step409_316 | **104.277 ± 2.075** | 110.928 ± 6.319 | 140.147 ± 43.168 |
 | tensornetwork_permutation_light_415 | **107.595 ± 4.729** | 110.015 ± 1.184 | 142.755 ± 48.206 |
 
-#### Strategy: opt_size
+##### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
@@ -365,13 +370,13 @@ Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 - **strided-rs** and **OMEinsum.jl** (omeinsum_path mode) use the same pre-computed contraction path for fair comparison.
 - Tensor network instances show significant improvement with HPTT-based permutation and source-order copy optimizations in strided-rs (e.g. `tensornetwork_permutation_light_415`: 172ms vs 248ms Julia at 1T, 107ms vs 142ms at 4T).
 
----
+### AMD EPYC 7713P
 
 Environment: AMD EPYC 7713P (64-Core, Zen 3). Median ± IQR (ms) of 15 runs (3 warmup). Rust OpenBLAS: 0.3.29 (local build). Julia 1.12.5, BLAS: lbt (OpenBLAS 0.3.29). Run date: 2026-02-20.
 
-### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
+#### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
-#### Strategy: opt_flops
+##### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
@@ -388,7 +393,7 @@ Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 | tensornetwork_permutation_focus_step409_316 | **278.747 ± 7.136** | 307.484 ± 9.203 | 462.286 ± 73.367 |
 | tensornetwork_permutation_light_415 | **283.434 ± 6.328** | 305.516 ± 11.052 | 476.160 ± 79.239 |
 
-#### Strategy: opt_size
+##### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
@@ -405,9 +410,9 @@ Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 | tensornetwork_permutation_focus_step409_316 | **282.867 ± 4.850** | 305.947 ± 8.968 | 471.158 ± 76.847 |
 | tensornetwork_permutation_light_415 | **287.021 ± 7.655** | 317.272 ± 15.311 | 473.007 ± 83.423 |
 
-### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
+#### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
-#### Strategy: opt_flops
+##### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
@@ -424,7 +429,7 @@ Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 | tensornetwork_permutation_focus_step409_316 | **222.743 ± 11.824** | 286.620 ± 6.626 | 388.525 ± 22.756 |
 | tensornetwork_permutation_light_415 | **222.260 ± 12.892** | 285.224 ± 7.933 | 388.819 ± 23.382 |
 
-#### Strategy: opt_size
+##### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
