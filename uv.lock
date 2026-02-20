@@ -665,6 +665,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "einsum-benchmark" },
+    { name = "opt-einsum" },
     { name = "tqdm" },
 ]
 
@@ -677,6 +678,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "einsum-benchmark", specifier = ">=0.1.7" },
+    { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
 ]
 
