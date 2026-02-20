@@ -294,75 +294,75 @@ Environment: Apple Silicon M2. Median ± IQR (ms) of 15 runs (3 warmup). Julia B
 
 #### 1 thread (`OMP_NUM_THREADS=1`, `RAYON_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`)
 
-##### Strategy: opt_flops
+#### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **2250.885 ± 50.871** | 2558.532 ± 37.899 | - |
-| lm_batch_likelihood_brackets_4_4d | **13.708 ± 0.538** | 15.609 ± 0.217 | 17.640 ± 1.774 |
-| lm_batch_likelihood_sentence_3_12d | **43.202 ± 0.697** | 45.763 ± 0.398 | 51.767 ± 2.982 |
-| lm_batch_likelihood_sentence_4_4d | **14.807 ± 0.738** | 15.711 ± 0.446 | 18.634 ± 0.698 |
-| str_matrix_chain_multiplication_100 | 11.658 ± 0.192 | **9.747 ± 0.364** | 13.160 ± 0.287 |
-| str_mps_varying_inner_product_200 | **12.681 ± 0.226** | 13.392 ± 0.275 | 16.417 ± 1.914 |
-| str_nw_mera_closed_120 | 1136.073 ± 3.496 | **1108.740 ± 4.346** | 1129.092 ± 6.852 |
-| str_nw_mera_open_26 | 705.168 ± 1.201 | **692.574 ± 2.937** | 847.499 ± 3.184 |
-| tensornetwork_permutation_focus_step409_316 | **165.356 ± 1.548** | 172.696 ± 1.162 | 165.546 ± 85.734 |
-| tensornetwork_permutation_light_415 | **166.450 ± 1.231** | 174.129 ± 2.272 | 248.907 ± 89.249 |
+| gm_queen5_5_3.wcsp | **2134.418 ± 18.394** | 2571.165 ± 41.478 | - |
+| lm_batch_likelihood_brackets_4_4d | **12.840 ± 0.046** | 15.761 ± 0.372 | 16.297 ± 10.668 |
+| lm_batch_likelihood_sentence_3_12d | **41.650 ± 0.349** | 43.815 ± 0.773 | 55.681 ± 69.221 |
+| lm_batch_likelihood_sentence_4_4d | **13.484 ± 0.053** | 15.658 ± 0.278 | 17.207 ± 10.827 |
+| str_matrix_chain_multiplication_100 | 9.939 ± 0.148 | **9.234 ± 0.221** | 12.373 ± 0.203 |
+| str_mps_varying_inner_product_200 | **12.418 ± 0.069** | 13.303 ± 0.297 | 15.248 ± 10.975 |
+| str_nw_mera_closed_120 | 1116.476 ± 27.169 | **1072.043 ± 18.720** | 1195.487 ± 38.241 |
+| str_nw_mera_open_26 | 694.691 ± 6.557 | **679.056 ± 4.521** | 902.708 ± 8.072 |
+| tensornetwork_permutation_focus_step409_316 | **162.136 ± 1.018** | 172.250 ± 5.907 | 239.893 ± 7.774 |
+| tensornetwork_permutation_light_415 | **164.702 ± 1.511** | 177.509 ± 4.936 | 242.308 ± 1.859 |
 
-##### Strategy: opt_size
+#### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=1, OMP_NUM_THREADS=1, RAYON_NUM_THREADS=1.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | **841.226 ± 18.452** | 897.783 ± 3.498 | - |
-| lm_batch_likelihood_brackets_4_4d | **14.760 ± 0.579** | 18.549 ± 0.294 | 18.209 ± 0.845 |
-| lm_batch_likelihood_sentence_3_12d | 48.802 ± 1.312 | **46.992 ± 0.744** | 49.174 ± 13.261 |
-| lm_batch_likelihood_sentence_4_4d | **16.276 ± 0.711** | 17.534 ± 0.300 | 18.218 ± 0.937 |
-| str_matrix_chain_multiplication_100 | 12.071 ± 0.601 | **9.704 ± 0.158** | 13.336 ± 0.898 |
-| str_mps_varying_inner_product_200 | **12.225 ± 0.291** | 13.280 ± 0.242 | 15.718 ± 1.029 |
-| str_nw_mera_closed_120 | 1190.591 ± 5.063 | 1154.118 ± 22.288 | **1098.401 ± 49.397** |
-| str_nw_mera_open_26 | 716.191 ± 1.987 | **704.318 ± 2.481** | 855.141 ± 5.573 |
-| tensornetwork_permutation_focus_step409_316 | **167.244 ± 1.371** | 173.720 ± 2.152 | 248.619 ± 85.563 |
-| tensornetwork_permutation_light_415 | **168.680 ± 1.415** | 175.384 ± 1.009 | 251.087 ± 85.844 |
+| gm_queen5_5_3.wcsp | **788.420 ± 27.688** | 880.214 ± 10.314 | - |
+| lm_batch_likelihood_brackets_4_4d | **13.590 ± 0.438** | 18.650 ± 0.275 | 16.909 ± 39.617 |
+| lm_batch_likelihood_sentence_3_12d | 45.732 ± 0.719 | **45.677 ± 1.000** | 55.857 ± 72.507 |
+| lm_batch_likelihood_sentence_4_4d | **14.856 ± 0.240** | 17.895 ± 0.195 | 17.101 ± 39.498 |
+| str_matrix_chain_multiplication_100 | 9.888 ± 0.272 | **9.116 ± 0.116** | 12.408 ± 0.175 |
+| str_mps_varying_inner_product_200 | **12.029 ± 0.200** | 13.244 ± 0.290 | 14.336 ± 6.141 |
+| str_nw_mera_closed_120 | 1153.648 ± 13.037 | **1118.618 ± 9.632** | 1119.583 ± 78.962 |
+| str_nw_mera_open_26 | 696.040 ± 3.544 | **680.557 ± 0.635** | 907.719 ± 72.441 |
+| tensornetwork_permutation_focus_step409_316 | **161.768 ± 0.503** | 169.045 ± 1.274 | 240.075 ± 10.249 |
+| tensornetwork_permutation_light_415 | **162.814 ± 1.454** | 170.672 ± 0.963 | 242.021 ± 1.149 |
 
 #### 4 threads (`OMP_NUM_THREADS=4`, `RAYON_NUM_THREADS=4`, `JULIA_NUM_THREADS=4`)
 
-##### Strategy: opt_flops
+#### Strategy: opt_flops
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 2226.390 ± 262.773 | **1795.207 ± 277.982** | - |
-| lm_batch_likelihood_brackets_4_4d | 13.742 ± 0.751 | **13.391 ± 0.745** | 16.089 ± 2.112 |
-| lm_batch_likelihood_sentence_3_12d | 28.813 ± 4.249 | **24.992 ± 1.696** | 32.007 ± 4.012 |
-| lm_batch_likelihood_sentence_4_4d | 13.970 ± 1.789 | **12.617 ± 0.503** | 15.539 ± 2.651 |
-| str_matrix_chain_multiplication_100 | 12.969 ± 2.270 | 9.885 ± 4.190 | **8.482 ± 0.797** |
-| str_mps_varying_inner_product_200 | 14.872 ± 0.956 | **14.643 ± 0.199** | 15.611 ± 5.016 |
-| str_nw_mera_closed_120 | 527.808 ± 80.691 | **421.520 ± 8.264** | 428.417 ± 7.367 |
-| str_nw_mera_open_26 | 283.615 ± 40.364 | **268.889 ± 87.239** | 411.360 ± 101.623 |
-| tensornetwork_permutation_focus_step409_316 | **69.439 ± 10.994** | 73.977 ± 5.958 | 142.740 ± 43.651 |
-| tensornetwork_permutation_light_415 | **69.437 ± 8.207** | 73.813 ± 1.085 | 111.945 ± 41.524 |
+| gm_queen5_5_3.wcsp | 2063.059 ± 44.882 | **1794.754 ± 42.447** | - |
+| lm_batch_likelihood_brackets_4_4d | **11.592 ± 0.137** | 13.953 ± 0.256 | 20.072 ± 21.337 |
+| lm_batch_likelihood_sentence_3_12d | **20.884 ± 0.163** | 21.074 ± 0.317 | 44.682 ± 28.033 |
+| lm_batch_likelihood_sentence_4_4d | **11.182 ± 0.197** | 13.120 ± 0.430 | 14.244 ± 6.324 |
+| str_matrix_chain_multiplication_100 | **7.311 ± 0.279** | 7.777 ± 0.186 | 8.150 ± 0.539 |
+| str_mps_varying_inner_product_200 | **13.230 ± 0.192** | 17.066 ± 0.354 | 14.580 ± 6.980 |
+| str_nw_mera_closed_120 | 353.825 ± 12.339 | **315.175 ± 1.750** | 379.693 ± 5.278 |
+| str_nw_mera_open_26 | 216.584 ± 7.423 | **195.120 ± 1.225** | 339.540 ± 4.997 |
+| tensornetwork_permutation_focus_step409_316 | **56.849 ± 2.776** | 59.583 ± 1.631 | 116.530 ± 28.371 |
+| tensornetwork_permutation_light_415 | **59.878 ± 3.086** | 61.870 ± 1.099 | 116.936 ± 1.253 |
 
-##### Strategy: opt_size
+#### Strategy: opt_size
 
 Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 
 | Instance | strided-rs faer (ms) | strided-rs OpenBLAS (ms) | OMEinsum.jl OpenBLAS (ms) |
 |---|---:|---:|---:|
-| gm_queen5_5_3.wcsp | 500.195 ± 16.561 | **444.300 ± 47.283** | - |
-| lm_batch_likelihood_brackets_4_4d | **13.509 ± 1.127** | 17.356 ± 1.896 | 16.298 ± 1.074 |
-| lm_batch_likelihood_sentence_3_12d | **24.599 ± 2.393** | 27.128 ± 2.045 | 38.989 ± 19.676 |
-| lm_batch_likelihood_sentence_4_4d | 16.040 ± 1.558 | **15.145 ± 0.726** | 16.340 ± 1.505 |
-| str_matrix_chain_multiplication_100 | 10.947 ± 1.928 | **6.966 ± 2.002** | 9.269 ± 3.527 |
-| str_mps_varying_inner_product_200 | 15.724 ± 1.752 | 14.345 ± 0.368 | **14.137 ± 0.712** |
-| str_nw_mera_closed_120 | 422.126 ± 36.977 | 409.026 ± 31.399 | **398.989 ± 13.093** |
-| str_nw_mera_open_26 | 299.660 ± 53.889 | **248.069 ± 3.115** | 380.936 ± 5.200 |
-| tensornetwork_permutation_focus_step409_316 | 87.663 ± 19.809 | **73.989 ± 1.122** | 144.334 ± 31.868 |
-| tensornetwork_permutation_light_415 | 76.011 ± 17.900 | **75.467 ± 1.945** | 145.619 ± 35.652 |
+| gm_queen5_5_3.wcsp | 448.772 ± 12.787 | **391.162 ± 16.473** | - |
+| lm_batch_likelihood_brackets_4_4d | **12.472 ± 0.654** | 16.782 ± 0.358 | 13.709 ± 3.977 |
+| lm_batch_likelihood_sentence_3_12d | **21.221 ± 0.621** | 22.196 ± 0.568 | 44.740 ± 27.802 |
+| lm_batch_likelihood_sentence_4_4d | **12.404 ± 0.099** | 15.035 ± 0.306 | 14.414 ± 14.519 |
+| str_matrix_chain_multiplication_100 | **7.411 ± 0.319** | 7.836 ± 0.148 | 8.090 ± 0.202 |
+| str_mps_varying_inner_product_200 | **12.992 ± 0.079** | 17.013 ± 0.229 | 13.225 ± 14.119 |
+| str_nw_mera_closed_120 | 336.661 ± 10.259 | **316.130 ± 2.378** | 339.918 ± 15.297 |
+| str_nw_mera_open_26 | 217.267 ± 7.220 | **196.389 ± 1.236** | 336.377 ± 2.693 |
+| tensornetwork_permutation_focus_step409_316 | **56.627 ± 1.409** | 59.408 ± 1.180 | 118.345 ± 18.918 |
+| tensornetwork_permutation_light_415 | **58.967 ± 2.233** | 60.887 ± 1.287 | 102.582 ± 43.131 |
 
 **Notes:**
 - `-` in tables indicates the instance was skipped (e.g. strided-opteinsum skips operands with duplicate axis labels). Skipped instances are printed as **SKIP** with the reason on stderr.
