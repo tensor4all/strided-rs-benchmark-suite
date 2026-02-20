@@ -445,8 +445,8 @@ Median ± IQR (ms). JULIA_NUM_THREADS=4, OMP_NUM_THREADS=4, RAYON_NUM_THREADS=4.
 - **strided-rs OpenBLAS** uses OpenBLAS 0.3.29 (locally built, see [Setup](#rust)). **strided-rs faer** uses [faer](https://github.com/sarah-quinones/faer-rs) (pure Rust GEMM).
 - **OMEinsum.jl** uses OpenBLAS 0.3.29 bundled with Julia 1.12.5 via libblastrampoline (lbt).
 - `gm_queen5_5_3.wcsp` skipped by Julia due to a `MethodError` (3D tensor not supported by Matrix constructor).
-- At 4T, **faer outperforms blas** on most instances. strided-kernel parallel (rayon) provides large speedups for faer, but blas 4T shows regression due to thread contention between OpenBLAS OMP threads and strided-kernel rayon threads.
-- strided-rs faer 4T shows regression on some small-tensor instances (lm_*, str_mps_*) due to threading overhead on tasks too small for parallelism to help.
+- At 4T, **faer outperforms blas** on most instances. strided-kernel parallel (rayon) provides large speedups for copy/permutation operations, especially on tensor network instances (e.g. `tensornetwork_permutation_light_415`: faer 222ms, blas 285ms vs Julia 388ms).
+- strided-rs 4T shows regression on some small-tensor instances (lm_*, str_mps_*) due to threading overhead on tasks too small for parallelism to help.
 
 ## References
 
