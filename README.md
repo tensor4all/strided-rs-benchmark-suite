@@ -180,6 +180,28 @@ BENCH_INSTANCE=str_nw_mera_closed_120 julia --project=. src/main.jl
 - **Instance name** must match the `name` field in the JSON (i.e. the filename without `.json`). To list available names: `ls data/instances/` → e.g. `str_nw_mera_closed_120.json` → use `str_nw_mera_closed_120`.
 - Both the Rust and Julia runners respect `BENCH_INSTANCE`; if set, only that instance is loaded and run for every strategy and mode.
 
+### 3.1 Binary Diagnostic Datasets (`data/instances`)
+
+The following binary-only benchmark datasets were added to make backend differences easier to isolate:
+
+- `bin_matmul_256.json` (`ij,jk->ik`)
+  - Dense matrix multiplication baseline.
+- `bin_batched_matmul_b32_m64_n64_k64.json` (`bij,bjk->bik`)
+  - Batched GEMM behavior with moderate batch size.
+- `bin_outer_product_4096.json` (`i,j->ij`)
+  - Outer-product path (sensitive to broadcast/pack overhead).
+- `bin_elementwise_mul_2048x2048.json` (`ij,ij->ij`)
+  - Pure elementwise multiplication throughput.
+
+These are intended for quick, reproducible profiling before running heavier LM/structured/network cases.
+
+Example:
+
+```bash
+RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  BENCH_INSTANCE=bin_outer_product_4096 cargo run --release
+```
+
 ### 4. Run individually
 
 **Rust (strided-opteinsum, faer backend):**
