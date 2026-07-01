@@ -1160,6 +1160,7 @@ dependencies = [
  "num-complex",
  "num-traits",
  "rayon",
+ "smallvec",
  "strided-kernel",
  "strided-perm",
  "strided-traits",
@@ -1206,9 +1207,14 @@ name = "strided-rs-benchmark-suite"
 version = "0.1.0"
 dependencies = [
  "num-complex",
+ "num-traits",
+ "rand 0.9.2",
+ "rand_distr",
+ "rayon",
  "serde",
  "serde_json",
  "strided-einsum2",
+ "strided-kernel",
  "strided-opteinsum",
  "strided-perm",
  "strided-view",
