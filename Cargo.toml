@@ -35,12 +35,12 @@ serde_json = "1"
 
 [[bin]]
 name = "step408_bench"
-path = "micro_bench/step408_bench.rs"
+path = "benchmarks/einsum_benchmarks/step408/step408_bench.rs"
 
 [[bin]]
 name = "scale_transpose"
-path = "micro_bench/scale_transpose.rs"
+path = "benchmarks/strided_benchmarks/transpose_scale/scale_transpose.rs"
 
 [[bin]]
 name = "permute"
-path = "micro_bench/permute.rs"
+path = "benchmarks/strided_benchmarks/permute/permute.rs"
