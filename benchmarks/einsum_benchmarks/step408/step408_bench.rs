@@ -50,22 +50,55 @@ fn main() {
     let ib: Vec<char> = "hklicxmnopdqfrstyjuzgvwe".chars().collect();
     let ic: Vec<char> = "abklwmnopqrstuvxyz".chars().collect();
 
-    println!("Step 408 micro-benchmark (all dims=2)");
-    println!("A: {:?} = {} elements", a.dims(), a.dims().iter().product::<usize>());
-    println!("B: {:?} = {} elements", b.dims(), b.dims().iter().product::<usize>());
-    println!("C: output {:?} = {} elements", &c_dims, c_dims.iter().product::<usize>());
-    println!("Einsum: {},{}->{}", ia.iter().collect::<String>(), ib.iter().collect::<String>(), ic.iter().collect::<String>());
+    println!("Step 408 benchmark (all dims=2)");
+    println!(
+        "A: {:?} = {} elements",
+        a.dims(),
+        a.dims().iter().product::<usize>()
+    );
+    println!(
+        "B: {:?} = {} elements",
+        b.dims(),
+        b.dims().iter().product::<usize>()
+    );
+    println!(
+        "C: output {:?} = {} elements",
+        &c_dims,
+        c_dims.iter().product::<usize>()
+    );
+    println!(
+        "Einsum: {},{}->{}",
+        ia.iter().collect::<String>(),
+        ib.iter().collect::<String>(),
+        ic.iter().collect::<String>()
+    );
     println!("{}", "=".repeat(70));
 
     // --- 1) Full einsum2_into_owned (scattered strides, what the real benchmark does) ---
-    let (med, iqr) = bench(|| {
-        let mut c_arr = StridedArray::<f64>::col_major(&c_dims);
-        strided_einsum2::einsum2_into_owned(
-            c_arr.view_mut(), a.clone(), b.clone(),
-            &ic, &ia, &ib, 1.0, 0.0, false, false,
-        ).unwrap();
-    }, warmup, nruns);
-    println!("einsum2 full (scattered B):    {:.3} ms (IQR {:.3} ms)", med, iqr);
+    let (med, iqr) = bench(
+        || {
+            let mut c_arr = StridedArray::<f64>::col_major(&c_dims);
+            strided_einsum2::einsum2_into_owned(
+                c_arr.view_mut(),
+                a.clone(),
+                b.clone(),
+                &ic,
+                &ia,
+                &ib,
+                1.0,
+                0.0,
+                false,
+                false,
+            )
+            .unwrap();
+        },
+        warmup,
+        nruns,
+    );
+    println!(
+        "einsum2 full (scattered B):    {:.3} ms (IQR {:.3} ms)",
+        med, iqr
+    );
 
     // --- 2) Isolate the copy cost: permute B to canonical order, then copy ---
     // Reconstruct the right_perm that einsum2 computes internally
@@ -75,24 +108,39 @@ fn main() {
     let b_perm = b.permuted(&right_perm).unwrap();
     println!(
         "\nB after canonical reorder: dims={:?} strides={:?}",
-        b_perm.dims(), b_perm.strides()
+        b_perm.dims(),
+        b_perm.strides()
     );
 
-    let (med_copy_b, iqr_copy_b) = bench(|| {
-        let mut b_dest = StridedArray::<f64>::col_major(b_perm.dims());
-        strided_perm::copy_into(&mut b_dest.view_mut(), &b_perm.view()).unwrap();
-    }, warmup, nruns);
-    println!("copy_into B (16M, scattered):  {:.3} ms (IQR {:.3} ms)", med_copy_b, iqr_copy_b);
+    let (med_copy_b, iqr_copy_b) = bench(
+        || {
+            let mut b_dest = StridedArray::<f64>::col_major(b_perm.dims());
+            strided_perm::copy_into(&mut b_dest.view_mut(), &b_perm.view()).unwrap();
+        },
+        warmup,
+        nruns,
+    );
+    println!(
+        "copy_into B (16M, scattered):  {:.3} ms (IQR {:.3} ms)",
+        med_copy_b, iqr_copy_b
+    );
 
     // --- 3) Copy cost for A ---
     let left_perm: Vec<usize> = vec![1, 12, 0, 4, 5, 6, 7, 8, 9, 11, 2, 3, 10];
     let a_perm = a.permuted(&left_perm).unwrap();
 
-    let (med_copy_a, iqr_copy_a) = bench(|| {
-        let mut a_dest = StridedArray::<f64>::col_major(a_perm.dims());
-        strided_perm::copy_into(&mut a_dest.view_mut(), &a_perm.view()).unwrap();
-    }, warmup, nruns);
-    println!("copy_into A (8K, scattered):   {:.3} ms (IQR {:.3} ms)", med_copy_a, iqr_copy_a);
+    let (med_copy_a, iqr_copy_a) = bench(
+        || {
+            let mut a_dest = StridedArray::<f64>::col_major(a_perm.dims());
+            strided_perm::copy_into(&mut a_dest.view_mut(), &a_perm.view()).unwrap();
+        },
+        warmup,
+        nruns,
+    );
+    println!(
+        "copy_into A (8K, scattered):   {:.3} ms (IQR {:.3} ms)",
+        med_copy_a, iqr_copy_a
+    );
 
     // --- 4) einsum2 with pre-contiguous data (isolates GEMM cost) ---
     // Make A and B contiguous in canonical order, then use labels matching canonical order
@@ -105,19 +153,43 @@ fn main() {
     let ia_canon: Vec<char> = left_perm.iter().map(|&i| ia[i]).collect();
     let ib_canon: Vec<char> = right_perm.iter().map(|&i| ib[i]).collect();
 
-    let (med_gemm, iqr_gemm) = bench(|| {
-        let mut c_arr = StridedArray::<f64>::col_major(&c_dims);
-        strided_einsum2::einsum2_into_owned(
-            c_arr.view_mut(), a_contig.clone(), b_contig.clone(),
-            &ic, &ia_canon, &ib_canon, 1.0, 0.0, false, false,
-        ).unwrap();
-    }, warmup, nruns);
-    println!("einsum2 (contiguous, ~GEMM):   {:.3} ms (IQR {:.3} ms)", med_gemm, iqr_gemm);
+    let (med_gemm, iqr_gemm) = bench(
+        || {
+            let mut c_arr = StridedArray::<f64>::col_major(&c_dims);
+            strided_einsum2::einsum2_into_owned(
+                c_arr.view_mut(),
+                a_contig.clone(),
+                b_contig.clone(),
+                &ic,
+                &ia_canon,
+                &ib_canon,
+                1.0,
+                0.0,
+                false,
+                false,
+            )
+            .unwrap();
+        },
+        warmup,
+        nruns,
+    );
+    println!(
+        "einsum2 (contiguous, ~GEMM):   {:.3} ms (IQR {:.3} ms)",
+        med_gemm, iqr_gemm
+    );
 
     // --- Summary ---
     println!("\n--- Summary ---");
     println!("Full einsum2 (scattered):  {:.3} ms", med);
-    println!("  copy B (dominant):       {:.3} ms ({:.0}%)", med_copy_b, med_copy_b / med * 100.0);
+    println!(
+        "  copy B (dominant):       {:.3} ms ({:.0}%)",
+        med_copy_b,
+        med_copy_b / med * 100.0
+    );
     println!("  copy A:                  {:.3} ms", med_copy_a);
-    println!("  GEMM only (~):           {:.3} ms ({:.0}%)", med_gemm, med_gemm / med * 100.0);
+    println!(
+        "  GEMM only (~):           {:.3} ms ({:.0}%)",
+        med_gemm,
+        med_gemm / med * 100.0
+    );
 }

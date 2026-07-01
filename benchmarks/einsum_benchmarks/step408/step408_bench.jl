@@ -72,7 +72,7 @@ end
 function main()
     A_orig, B_orig = make_tensors()
 
-    println("Step 408 micro-benchmark (all dims=2)")
+    println("Step 408 benchmark (all dims=2)")
     println("A: $(size(A_orig)) = $(length(A_orig)) elements")
     println("B: $(size(B_orig)) = $(length(B_orig)) elements")
     println("=" ^ 70)

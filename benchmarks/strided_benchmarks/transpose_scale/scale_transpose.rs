@@ -1,4 +1,4 @@
-//! Micro-benchmark for 2D transpose-scale paths.
+//! Benchmark for 2D transpose-scale paths.
 //!
 //! This tracks cases where a raw pointer naive loop previously matched or beat
 //! the strided path. Run benchmarks sequentially; do not run 1T and 4T jobs at
@@ -239,7 +239,7 @@ fn main() {
         })
         .unwrap_or_else(|| vec![1000, 1024, 2048]);
 
-    println!("2D transpose-scale micro-benchmark");
+    println!("2D transpose-scale benchmark");
     println!("warmup={warmup} nruns={nruns} sizes={sizes:?}");
     println!("columns: dtype n scale naive_ms(iqr) strided_ms(iqr) map_ms(iqr)");
     println!("{}", "-".repeat(92));
