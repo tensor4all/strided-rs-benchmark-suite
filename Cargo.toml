@@ -6,7 +6,13 @@ edition = "2021"
 [features]
 default = ["faer"]
 faer = ["strided-opteinsum/faer", "strided-einsum2/faer"]
-parallel = ["strided-opteinsum/parallel", "strided-einsum2/parallel"]
+parallel = [
+    "strided-opteinsum/parallel",
+    "strided-einsum2/parallel",
+    "strided-kernel/parallel",
+    "strided-perm/parallel",
+    "dep:rayon",
+]
 blas = ["strided-opteinsum/blas", "strided-einsum2/blas"]
 
 [profile.release-with-debug]
@@ -16,12 +22,25 @@ debug = true
 [dependencies]
 strided-opteinsum = { path = "../strided-rs/strided-opteinsum", default-features = false }
 strided-einsum2 = { path = "../strided-rs/strided-einsum2", default-features = false }
+strided-kernel = { path = "../strided-rs/strided-kernel", default-features = false }
 strided-view = { path = "../strided-rs/strided-view" }
 strided-perm = { path = "../strided-rs/strided-perm" }
 num-complex = "0.4"
+num-traits = "0.2"
+rand = "0.9"
+rand_distr = "0.5"
+rayon = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [[bin]]
 name = "step408_bench"
 path = "micro_bench/step408_bench.rs"
+
+[[bin]]
+name = "scale_transpose"
+path = "micro_bench/scale_transpose.rs"
+
+[[bin]]
+name = "permute"
+path = "micro_bench/permute.rs"
