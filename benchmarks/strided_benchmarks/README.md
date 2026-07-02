@@ -8,7 +8,7 @@ together.
 
 | Page | Compares | HPTT coverage |
 |---|---|---|
-| [Permutation kernels](permute/README.md) | naive odometer and memcpy baselines versus `strided_perm` serial/parallel paths | Included for directly matching contiguous-source transpose cases |
+| [Permutation kernels](permute/README.md) | JSON-defined permutation patterns comparing naive, `strided_perm`, HPTT, Julia Base, and Strided.jl where applicable | Included in the unified Rust runner for directly matching contiguous-source transpose cases |
 | [Transpose-scale kernels](transpose_scale/README.md) | raw pointer naive loops versus `copy_transpose_scale_into`, `map_into`, and `strided_perm::copy_into` where applicable | Not included yet; add only if the HPTT runner covers the same scale/update semantics |
 
 ## Result Policy

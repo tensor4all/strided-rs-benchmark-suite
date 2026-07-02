@@ -1,5 +1,5 @@
 """
-Minimal benchmark reproducing step 408 of tensornetwork_permutation_light_415.
+Minimal benchmark reproducing TN light 415 late-step contraction of tensornetwork_permutation_light_415.
 
 Binary einsum: abcdefghijxyz,cdefghijklmnopqrstuvwxyz->abklmnopqrstuvwxyz
 All dims = 2 (binary tensor network).
@@ -72,7 +72,7 @@ end
 function main()
     A_orig, B_orig = make_tensors()
 
-    println("Step 408 benchmark (all dims=2)")
+    println("TN light 415 late-step benchmark (all dims=2)")
     println("A: $(size(A_orig)) = $(length(A_orig)) elements")
     println("B: $(size(B_orig)) = $(length(B_orig)) elements")
     println("=" ^ 70)

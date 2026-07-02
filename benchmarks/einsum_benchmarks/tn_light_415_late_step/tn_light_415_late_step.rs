@@ -1,4 +1,4 @@
-//! Minimal benchmark reproducing step 408 of tensornetwork_permutation_light_415.
+//! Minimal benchmark reproducing TN light 415 late-step contraction of tensornetwork_permutation_light_415.
 //!
 //! Binary einsum with all dims = 2 (binary tensor network).
 //! m=4, k=256, n=8192, batch=8.
@@ -8,8 +8,8 @@
 //! contiguous layout before BLAS GEMM.
 //!
 //! Build & run:
-//!   cargo run --release --no-default-features --features blas --bin step408_bench
-//!   OMP_NUM_THREADS=4 cargo run --release --no-default-features --features blas --bin step408_bench
+//!   cargo run --release --no-default-features --features blas --bin tn_light_415_late_step
+//!   OMP_NUM_THREADS=4 cargo run --release --no-default-features --features blas --bin tn_light_415_late_step
 
 use std::time::Instant;
 use strided_view::StridedArray;
@@ -44,13 +44,13 @@ fn main() {
     // C: 18 dims of size 2, col-major. 262144 elements.
     let c_dims: Vec<usize> = vec![2; 18];
 
-    // Exact einsum labels reconstructed from step 408's plan
+    // Exact einsum labels reconstructed from TN light 415 late-step contraction's plan
     // These labels produce the same scattered-stride pattern as the real benchmark.
     let ia: Vec<char> = "caxydefghizjb".chars().collect();
     let ib: Vec<char> = "hklicxmnopdqfrstyjuzgvwe".chars().collect();
     let ic: Vec<char> = "abklwmnopqrstuvxyz".chars().collect();
 
-    println!("Step 408 benchmark (all dims=2)");
+    println!("TN light 415 late-step benchmark (all dims=2)");
     println!(
         "A: {:?} = {} elements",
         a.dims(),

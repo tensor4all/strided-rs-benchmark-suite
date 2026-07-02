@@ -1,5 +1,5 @@
 """
-Investigate what OMEinsum actually does for step 408.
+Investigate what OMEinsum actually does for TN light 415 late-step contraction.
 Specifically: how does it avoid the 16M-element permutation?
 """
 

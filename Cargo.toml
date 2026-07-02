@@ -13,6 +13,7 @@ parallel = [
     "strided-perm/parallel",
     "dep:rayon",
 ]
+hptt = ["dep:hptt"]
 blas = ["strided-opteinsum/blas", "strided-einsum2/blas"]
 
 [profile.release-with-debug]
@@ -27,15 +28,14 @@ strided-view = { path = "../strided-rs/strided-view" }
 strided-perm = { path = "../strided-rs/strided-perm" }
 num-complex = "0.4"
 num-traits = "0.2"
-rand = "0.9"
-rand_distr = "0.5"
+hptt = { version = "0.4.1", optional = true }
 rayon = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [[bin]]
-name = "step408_bench"
-path = "benchmarks/einsum_benchmarks/step408/step408_bench.rs"
+name = "tn_light_415_late_step"
+path = "benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step.rs"
 
 [[bin]]
 name = "scale_transpose"

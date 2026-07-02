@@ -30,7 +30,7 @@ See [tensor4all/strided-rs#63](https://github.com/tensor4all/strided-rs/issues/6
 strided-rs-benchmark-suite/
   benchmarks/
     README.md               # Index for benchmark result pages
-    einsum_benchmarks/      # Full-suite einsum results and Step 408 case study
+    einsum_benchmarks/      # Full-suite einsum results and TN light 415 late-step case study
     strided_benchmarks/     # Strided kernel benchmarks and comparisons
   src/
     main.rs                 # Rust benchmark runner (strided-opteinsum)
@@ -134,13 +134,13 @@ uv run python scripts/create_lightweight_instance.py \
 
 The script finds a BFS-connected subset of the given size with minimal free indices, sets the output to scalar, and computes an optimized contraction path via `opt_einsum`.
 
-**Optional: Focus on the dominant late contraction steps (step408/step409)**
+**Optional: Focus on the dominant late contraction steps (original steps 408/409)**
 
 For kernel-level profiling of the most expensive region in `tensornetwork_permutation_light_415`, this repo also includes:
 
 - `data/instances/tensornetwork_permutation_focus_step409_316.json`
 
-This instance is extracted from the original 415-tensor contraction tree by taking the subtree that ends at original **step 409**. It preserves the expensive late-stage structure (original step 408 and 409), while reducing total tree size from 415 to 316 tensors for faster iteration. Unlike the lightweight scalar instance, this focused instance has a non-scalar output (rank-18), because it represents an internal contraction state.
+This instance is extracted from the original 415-tensor contraction tree by taking the subtree that ends at original **step 409**. It preserves the expensive late-stage structure (original steps 408 and 409), while reducing total tree size from 415 to 316 tensors for faster iteration. Unlike the lightweight scalar instance, this focused instance has a non-scalar output (rank-18), because it represents an internal contraction state.
 
 Use it when you want to benchmark or profile the bottleneck contraction kernels directly:
 

@@ -9,7 +9,7 @@ here instead of embedding large result tables.
 | Page | Scope |
 |---|---|
 | [Full suite results](#benchmark-instances) | Repository-level `strided-opteinsum` versus OMEinsum.jl results. |
-| [Step 408 bottleneck case study](step408/README.md) | One late binary contraction from `tensornetwork_permutation_light_415`. |
+| [TN light 415 late-step case study](tn_light_415_late_step/README.md) | One late binary contraction from `tensornetwork_permutation_light_415`. |
 
 ## Benchmark Instances
 
