@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 RESULTS_DIR="$PROJECT_DIR/data/results"
 
-export BENCHMARK_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+export BENCHMARK_TIMESTAMP="${BENCHMARK_TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
 
 echo "============================================"
 echo " strided-rs benchmark suite"

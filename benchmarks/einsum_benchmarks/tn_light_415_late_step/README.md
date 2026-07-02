@@ -21,13 +21,12 @@ julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_4
 julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step_fair.jl
 ```
 
-## Results (Apple M5 MacBook Pro)
+## Results (Apple M5 Max MacBook Pro)
 
-Measured on macOS, 2026-07-02. macOS runs are not CPU-pinned.
+Measured on macOS 26.5.1, 2026-07-02. macOS runs are not CPU-pinned.
 
+- `strided-rs`: `7cdc813`
 - Rust compiler flags: `RUSTFLAGS="-C target-cpu=native"`
-- strided-rs: `91a0aca`
-- benchmark suite: this commit
 - Julia environment: Manifest-instantiated `OMEinsum v0.9.3`
 
 ### Rust BLAS
@@ -37,8 +36,8 @@ Median milliseconds. Run with
 
 | Threads | full scattered | copy B | copy A | contiguous GEMM |
 |---:|---:|---:|---:|---:|
-| 1 | 16.805 | 12.302 | 0.006 | 5.193 |
-| 4 | 16.759 | 12.504 | 0.005 | 5.183 |
+| 1 | 17.087 | 12.465 | 0.005 | 5.261 |
+| 4 | 17.020 | 12.305 | 0.005 | 5.202 |
 
 ### Julia Decomposition
 
@@ -49,8 +48,8 @@ validation.
 
 | Threads | OMEinsum DynamicEinCode | permutedims! + BLAS | permutedims! B | permutedims! A | BLAS GEMM |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 5.926 | 27.941 | 22.110 | 0.008 | 5.770 |
-| 4 | 2.197 | 24.692 | 22.370 | 0.008 | 2.043 |
+| 1 | 6.010 | 28.326 | 22.269 | 0.008 | 5.778 |
+| 4 | 2.147 | 24.771 | 22.356 | 0.008 | 2.235 |
 
 ### Julia Fair Comparison
 
@@ -58,5 +57,5 @@ Median milliseconds. Run with `julia --project=. benchmarks/einsum_benchmarks/tn
 
 | Threads | OMEinsum scrambled | OMEinsum natural | permutedims! B Rust perm | permutedims! B batch-front | BLAS GEMM |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 27.695 | 5.848 | 21.773 | 16.779 | 5.765 |
-| 4 | 24.549 | 2.132 | 21.832 | 16.909 | 2.072 |
+| 1 | 27.796 | 5.931 | 21.986 | 16.883 | 5.760 |
+| 4 | 25.066 | 2.219 | 21.999 | 16.957 | 2.114 |
