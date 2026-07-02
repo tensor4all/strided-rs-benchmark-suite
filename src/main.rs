@@ -1,6 +1,6 @@
 use std::hint::black_box;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::Deserialize;
 use strided_opteinsum::{EinsumCode, EinsumError, EinsumNode, EinsumOperand};
@@ -84,7 +84,11 @@ fn build_contraction_tree(input_indices: &[Vec<char>], path: &[[usize; 2]]) -> E
         });
     }
 
-    assert_eq!(nodes.len(), 1, "contraction path should reduce to a single node");
+    assert_eq!(
+        nodes.len(),
+        1,
+        "contraction path should reduce to a single node"
+    );
     nodes.pop().unwrap()
 }
 
@@ -130,7 +134,10 @@ impl BenchResult {
 const NUM_WARMUP: usize = 3;
 const NUM_TIMED: usize = 15;
 
-fn run_instance(instance: &BenchmarkInstance, path_meta: &PathMeta) -> Result<BenchResult, EinsumError> {
+fn run_instance(
+    instance: &BenchmarkInstance,
+    path_meta: &PathMeta,
+) -> Result<BenchResult, EinsumError> {
     let (input_indices, output_indices) = parse_format_string(&instance.format_string_colmajor);
     assert_eq!(
         input_indices.len(),

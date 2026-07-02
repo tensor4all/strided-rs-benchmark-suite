@@ -113,6 +113,16 @@ function create_tensors(shapes, dtype::AbstractString)
     end
 end
 
+function short_error_string(e)
+    message = sprint(showerror, e)
+    message = replace(message, '\n' => ' ')
+    max_chars = 240
+    if length(message) > max_chars
+        message = first(message, max_chars) * "..."
+    end
+    return "$(typeof(e)): $message"
+end
+
 function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
     # Julia is column-major; use colmajor format_string and shapes from JSON
     # (reversed from NumPy convention to match column-major memory layout).
@@ -152,7 +162,7 @@ function benchmark_instance(instance, strategy::AbstractString, mode::Symbol)
             run_fn(tensors)
         end
     catch e
-        return nothing, nothing, nothing, string(e)
+        return nothing, nothing, nothing, short_error_string(e)
     end
 
     # Timed runs: 15 runs, report median and IQR in ms
