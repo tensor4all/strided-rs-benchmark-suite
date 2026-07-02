@@ -1,122 +1,97 @@
 # Strided Permutation Benchmark
 
-Compares credible naive baselines with `strided_perm` copy/permutation paths.
-For cases that HPTT can represent directly, this page also reports HPTT C++
-transpose timings from the companion `hptt_compare.cpp` runner.
+This benchmark compares materializing strided/permuted `f64` tensors into a
+col-major destination. The benchmark patterns live in
+[`patterns.json`](patterns.json), and the Rust and Julia runners consume that
+same file.
 
-Cases that require arbitrary source strides are intentionally not compared
-against HPTT because HPTT's public API accepts contiguous source tensors.
+The unified pattern set incorporates the third-party transpose comparison from
+[ultimatile/297160e33005b42595c3e2a416e0549b](https://gist.github.com/ultimatile/297160e33005b42595c3e2a416e0549b):
+naive, HPTT, and `strided-perm` are compared on the same col-major `f64`
+transpose semantics, with correctness checked before timing.
+
+## Pattern Schema
+
+Each pattern records the operation, not the result:
+
+- `shape`: source tensor shape.
+- `perm`: 0-indexed permutation with semantics
+  `out[i0,...,ik] = src[i_perm0,...,i_permk]`.
+- `src_layout` and `dst_layout`: currently `col_major` or explicit source
+  strides.
+- `participants`: implementations that should be reported for the pattern.
+- `data`: fixed to `deterministic_index_value`; no random seed is recorded.
+
+HPTT rows are emitted only for patterns with contiguous source and destination
+layouts. Explicit source-stride cases such as `tn_light_415_24d_scattered_to_colmajor`
+are intentionally excluded from HPTT because the public HPTT API does not
+represent arbitrary source strides.
 
 ## Run
 
-Run these sequentially. Do not run thread-count variants at the same time.
+Run thread-count variants sequentially. Do not run benchmark processes in
+parallel.
+
+Rust, serial:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" \
   RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
   cargo run --release --bin permute
+```
 
+Rust, parallel `strided-perm`:
+
+```bash
 RUSTFLAGS="-C target-cpu=native" \
   RAYON_NUM_THREADS=4 OMP_NUM_THREADS=1 \
   cargo run --release --features parallel --bin permute
 ```
 
-For HPTT-compatible contiguous-source transpose cases:
+Rust with HPTT rows:
 
 ```bash
-HPTT_DIR=../hptt CXX=/opt/homebrew/bin/g++-15 \
-  THREADS=1 WARMUP=3 NRUNS=11 \
-  benchmarks/strided_benchmarks/permute/run_hptt_compare.sh
-
-HPTT_DIR=../hptt CXX=/opt/homebrew/bin/g++-15 \
-  THREADS=4 WARMUP=3 NRUNS=11 \
-  benchmarks/strided_benchmarks/permute/run_hptt_compare.sh
+RUSTFLAGS="-C target-cpu=native" \
+  RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  cargo run --release --features hptt --bin permute
 ```
 
-## Results (Apple M5 MacBook Pro)
+Rust with parallel `strided-perm` and HPTT using the same Rayon thread count:
 
-Measured on macOS, 2026-07-02. macOS runs are not CPU-pinned.
+```bash
+RUSTFLAGS="-C target-cpu=native" \
+  RAYON_NUM_THREADS=4 OMP_NUM_THREADS=1 \
+  cargo run --release --features parallel,hptt --bin permute
+```
 
-- compiler flags: `RUSTFLAGS="-C target-cpu=native"`
-- strided-rs: `91a0aca`
-- benchmark suite: this commit
+Julia Base and Strided.jl:
 
-Median milliseconds.
+```bash
+JULIA_NUM_THREADS=1 julia --project=. \
+  benchmarks/strided_benchmarks/permute/permute.jl
 
-### 1T
+JULIA_NUM_THREADS=4 julia --project=. \
+  benchmarks/strided_benchmarks/permute/permute.jl
+```
 
-| Scenario | Path | ms |
-|---|---|---:|
-| memcpy baseline | `std::ptr::copy_nonoverlapping` | 1.911 |
-| memcpy baseline | `copy_into` contiguous fast path | 1.913 |
-| 24D scattered -> col-major | naive odometer | 20.212 |
-| 24D scattered -> col-major | `copy_into` | 5.124 |
-| 24D scattered -> col-major | `copy_into_col_major` | 5.153 |
-| 24D contig source, same perm | `copy_into` | 3.186 |
-| 24D contig -> contig perm | `copy_into` | 3.165 |
-| 24D contig -> contig perm | `copy_into_col_major` | 3.206 |
-| 24D contig -> contig perm | naive odometer | 18.167 |
-| 13D small reverse | `copy_into` | 0.004 |
-| 13D small cyclic | `copy_into` | 0.003 |
-| 13D small reverse | naive odometer | 0.009 |
-| 3D 256^3 [2,0,1] | `copy_into` | 14.416 |
-| 3D 256^3 [2,0,1] | `copy_into_col_major` | 14.454 |
-| 3D 256^3 [2,0,1] | naive odometer | 61.731 |
-| 3D 256^3 [1,0,2] | `copy_into` | 11.078 |
+To run one pattern while investigating:
 
-### 4T
+```bash
+PATTERN_ID=transpose_2d_1024 cargo run --release --features hptt --bin permute
 
-| Scenario | Path | ms |
-|---|---|---:|
-| memcpy baseline | `std::ptr::copy_nonoverlapping` | 1.916 |
-| memcpy baseline | `copy_into` contiguous fast path | 1.916 |
-| 24D scattered -> col-major | naive odometer | 20.140 |
-| 24D scattered -> col-major | `copy_into` | 5.116 |
-| 24D scattered -> col-major | `copy_into_col_major` | 5.157 |
-| 24D scattered -> col-major | `copy_into_par` | 3.048 |
-| 24D scattered -> col-major | `copy_into_col_major_par` | 3.253 |
-| 24D contig source, same perm | `copy_into` | 3.280 |
-| 24D contig -> contig perm | `copy_into` | 3.214 |
-| 24D contig -> contig perm | `copy_into_col_major` | 3.222 |
-| 24D contig -> contig perm | naive odometer | 18.945 |
-| 24D contig -> contig perm | `copy_into_par` | 1.152 |
-| 13D small reverse | `copy_into` | 0.004 |
-| 13D small cyclic | `copy_into` | 0.002 |
-| 13D small reverse | naive odometer | 0.009 |
-| 13D small reverse | `copy_into_par` | 0.004 |
-| 3D 256^3 [2,0,1] | `copy_into` | 13.315 |
-| 3D 256^3 [2,0,1] | `copy_into_col_major` | 13.294 |
-| 3D 256^3 [2,0,1] | naive odometer | 45.754 |
-| 3D 256^3 [2,0,1] | `copy_into_par` | 4.792 |
-| 3D 256^3 [1,0,2] | `copy_into` | 11.056 |
-| 3D 256^3 [1,0,2] | `copy_into_par` | 3.244 |
+PATTERN_ID=transpose_2d_1024 julia --project=. \
+  benchmarks/strided_benchmarks/permute/permute.jl
+```
 
-### HPTT-Compatible Transpose Cases
+## Implementations
 
-These rows come from `hptt_compare.cpp`, which checks every reported case for
-correctness. They are listed here only for contiguous-source transpose cases
-that correspond to the permutation benchmark's large 3D transpose scenarios.
+| Runner | Implementations |
+|---|---|
+| Rust | naive odometer, `std::ptr::copy_nonoverlapping`, `strided_perm::copy_into`, `strided_perm::copy_into_col_major`, parallel variants, optional `hptt` crate |
+| Julia | Base `permutedims!` or generic `copyto!`, Strided.jl `@strided` materialization |
 
-#### 1T
+## Results
 
-| Scenario | HPTT execute | HPTT create+execute |
-|---|---:|---:|
-| 2D 1024^2 transpose [1,0] | 0.655 | 0.648 |
-| 3D 256^3 transpose [2,0,1] | 24.473 | 24.477 |
-| 3D 256^3 transpose [1,0,2] | 14.329 | 14.310 |
-
-#### 4T
-
-| Scenario | HPTT execute | HPTT create+execute |
-|---|---:|---:|
-| 2D 1024^2 transpose [1,0] | 0.201 | 0.224 |
-| 3D 256^3 transpose [2,0,1] | 7.929 | 7.956 |
-| 3D 256^3 transpose [1,0,2] | 4.384 | 4.614 |
-
-### HPTT Exclusions
-
-- `24D scattered -> col-major` uses arbitrary source strides, so it is not a
-  direct HPTT API comparison.
-- The high-rank binary contiguous-source permutation is covered by
-  `strided_perm`, but HPTT high-rank timings are omitted unless the suite also
-  carries an equivalent correctness checker.
+Full results should be regenerated from the unified runners after benchmark
+changes. Record the `strided-rs` git hash beside the result table when updating
+this page.

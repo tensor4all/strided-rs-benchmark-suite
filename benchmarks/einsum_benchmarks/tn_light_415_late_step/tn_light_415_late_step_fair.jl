@@ -1,7 +1,7 @@
 """
-Fair comparison: use the SAME scrambled label ordering as Rust's step 408.
+Fair comparison: use the SAME scrambled label ordering as Rust's TN light 415 late-step contraction.
 
-In Rust, step 408 receives tensors with scrambled labels from previous contraction steps.
+In Rust, TN light 415 late-step contraction receives tensors with scrambled labels from previous contraction steps.
 The einsum2 plan reorders these scattered-stride dims → expensive copy.
 
 This test reproduces the same scrambled ordering in Julia's OMEinsum.
@@ -10,7 +10,7 @@ This test reproduces the same scrambled ordering in Julia's OMEinsum.
 using OMEinsum
 using LinearAlgebra
 
-# --- Exact labels from Rust's step 408 (reconstructed from captured permutations) ---
+# --- Exact labels from Rust's TN light 415 late-step contraction (reconstructed from captured permutations) ---
 # ia (Rust) = "caxydefghizjb" → use integer labels
 # lo={a,b}→{1,2}, sum={c..j}→{3..10}, ro={k..w}→{11..23}, batch={x,y,z}→{24,25,26}
 # Rust ia mapping: c=3, a=1, x=24, y=25, d=4, e=5, f=6, g=7, h=8, i=9, z=26, j=10, b=2
@@ -48,7 +48,7 @@ function main()
     A = rand(Float64, ntuple(_ -> 2, 13)...)
     B = rand(Float64, ntuple(_ -> 2, 24)...)
 
-    println("Step 408 fair comparison (scrambled vs natural labels)")
+    println("TN light 415 late-step fair comparison (scrambled vs natural labels)")
     println("A: $(size(A)) = $(length(A)) elements")
     println("B: $(size(B)) = $(length(B)) elements")
     println("=" ^ 70)

@@ -1,4 +1,4 @@
-# Einsum Step 408 Benchmark
+# TN Light 415 Late-Step Einsum Benchmark
 
 Reproduces the bottleneck step of `tensornetwork_permutation_light_415`.
 This page is a focused einsum case study for one late contraction step. It is
@@ -12,13 +12,13 @@ m=4, k=256, n=8192, batch=8.
 
 ```bash
 # Rust (blas backend)
-cargo run --release --no-default-features --features blas --bin step408_bench
+cargo run --release --no-default-features --features blas --bin tn_light_415_late_step
 
 # Julia
-julia --project=. benchmarks/einsum_benchmarks/step408/step408_bench.jl
+julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step.jl
 
 # Fair comparison (scrambled vs natural labels)
-julia --project=. benchmarks/einsum_benchmarks/step408/step408_fair.jl
+julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step_fair.jl
 ```
 
 ## Results (Apple M5 MacBook Pro)
@@ -33,7 +33,7 @@ Measured on macOS, 2026-07-02. macOS runs are not CPU-pinned.
 ### Rust BLAS
 
 Median milliseconds. Run with
-`cargo run --release --no-default-features --features blas --bin step408_bench`.
+`cargo run --release --no-default-features --features blas --bin tn_light_415_late_step`.
 
 | Threads | full scattered | copy B | copy A | contiguous GEMM |
 |---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Median milliseconds. Run with
 
 ### Julia Decomposition
 
-Median milliseconds. Run with `julia --project=. benchmarks/einsum_benchmarks/step408/step408_bench.jl`.
+Median milliseconds. Run with `julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step.jl`.
 The manual `permutedims! + BLAS gemm` path in this script currently reports a
 large max error, so treat this table as component timing, not correctness
 validation.
@@ -54,7 +54,7 @@ validation.
 
 ### Julia Fair Comparison
 
-Median milliseconds. Run with `julia --project=. benchmarks/einsum_benchmarks/step408/step408_fair.jl`.
+Median milliseconds. Run with `julia --project=. benchmarks/einsum_benchmarks/tn_light_415_late_step/tn_light_415_late_step_fair.jl`.
 
 | Threads | OMEinsum scrambled | OMEinsum natural | permutedims! B Rust perm | permutedims! B batch-front | BLAS GEMM |
 |---:|---:|---:|---:|---:|---:|
