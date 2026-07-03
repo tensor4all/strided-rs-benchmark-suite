@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "strided-einsum2"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cblas-sys",
  "faer",
@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "strided-kernel"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "strided-opteinsum"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -1215,7 +1215,7 @@ dependencies = [
 
 [[package]]
 name = "strided-perm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rayon",
  "strided-view",
@@ -1240,7 +1240,7 @@ dependencies = [
 
 [[package]]
 name = "strided-traits"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -1248,7 +1248,7 @@ dependencies = [
 
 [[package]]
 name = "strided-view"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "num-complex",
  "num-traits",

@@ -44,3 +44,7 @@ path = "benchmarks/strided_benchmarks/transpose_scale/scale_transpose.rs"
 [[bin]]
 name = "permute"
 path = "benchmarks/strided_benchmarks/permute/permute.rs"
+
+[[bin]]
+name = "fused_elementwise"
+path = "benchmarks/strided_benchmarks/fused_elementwise/fused_elementwise.rs"
