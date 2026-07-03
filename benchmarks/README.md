@@ -23,6 +23,9 @@ cases:
 - [Transpose-scale kernels](strided_benchmarks/transpose_scale/README.md): raw
   pointer naive loops, `copy_transpose_scale_into`, `map_into`, and
   `strided_perm::copy_into` where applicable.
+- [Fused elementwise kernels](strided_benchmarks/fused_elementwise/README.md):
+  per-op reused buffers versus `fused_elementwise_into` static DAG
+  specializations and interpreter fallback.
 
 ## Result Policy
 
