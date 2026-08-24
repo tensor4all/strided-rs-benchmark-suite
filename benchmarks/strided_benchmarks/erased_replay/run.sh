@@ -12,7 +12,8 @@ fi
 
 cpus=${CPUS:-0-3}
 out=${OUTPUT_DIR:-"$root/data/results/erased-replay-$actual"}
-mkdir -p "$out"
+target=${CARGO_TARGET_DIR:-"$root/target/erased-replay-$actual"}
+mkdir -p "$out" "$target"
 
 groups=(
     erased_gather_generic_rank_layout
@@ -27,7 +28,7 @@ for group in "${groups[@]}"; do
     echo "==> $group (CPUs $cpus, strided-rs $actual)"
     STRIDED_KERNEL_ERASED_POLICY_BENCH_PROFILE=threshold \
     STRIDED_KERNEL_ERASED_POLICY_BENCH_THREADS=4 \
-    RAYON_NUM_THREADS=4 \
+    RAYON_NUM_THREADS=4 CARGO_TARGET_DIR="$target" \
         taskset -c "$cpus" cargo bench \
         --manifest-path "$strided_rs/Cargo.toml" \
         -p strided-kernel --bench erased_policy_thresholds \

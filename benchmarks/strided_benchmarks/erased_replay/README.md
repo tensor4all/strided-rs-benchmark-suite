@@ -15,8 +15,10 @@ CPUS=0-3 STRIDED_RS_REF=53ecd7718169e69320078f4bb2609945140450ac \
   ./benchmarks/strided_benchmarks/erased_replay/run.sh
 ```
 
-The script refuses a different strided-rs checkout. Setup and plan compilation
-remain outside Criterion timed regions.
+The script refuses a different strided-rs checkout and uses a hash-specific
+Cargo target directory. Setup and plan compilation remain outside Criterion
+timed regions. It does not automate the load gate: inspect the selected cores
+and the rest of their L3 domain immediately before starting it.
 
 ## Environment
 
@@ -28,6 +30,10 @@ remain outside Criterion timed regions.
 - sizes: 4,096; 32,768; 262,144; 1,048,576 elements
 - contexts: serial and `ExecContext::max_threads(4)`; groups ran sequentially
 - load gate: selected cores and the rest of their L3 domain checked before each run
+
+Most baseline/candidate pairs used the same L3 domain. The generic-gather pair
+used different domains; its worklog records the approximately 17% control shift,
+which is small relative to the reported generic speedups.
 
 Implementation checkpoints:
 
