@@ -1,17 +1,18 @@
 # Erased Replay Rank/Layout Scaling
 
 This page publishes the before/after evidence for the strided-rs #213
-incremental-offset remediation. It covers generic gather, dynamic slice/update,
-erased axis reduction, generic pad, and integer divide/remainder zero preflight.
+incremental-offset remediation. It covers generic gather and additive scatter,
+dynamic slice/update, erased axis reduction, generic pad, and integer
+divide/remainder zero preflight.
 
 ## Reproduce
 
 The measurement source is
 `strided-kernel/benches/erased_policy_thresholds.rs` at strided-rs
-`53ecd7718169e69320078f4bb2609945140450ac`. Run all groups sequentially:
+`b40cd2f6d83c35ca23b24a8fb371ca061495729c`. Run all groups sequentially:
 
 ```bash
-CPUS=0-3 STRIDED_RS_REF=53ecd7718169e69320078f4bb2609945140450ac \
+CPUS=0-3 STRIDED_RS_REF=b40cd2f6d83c35ca23b24a8fb371ca061495729c \
   ./benchmarks/strided_benchmarks/erased_replay/run.sh
 ```
 
@@ -44,6 +45,7 @@ Implementation checkpoints:
 | erased axis reduction | `37ce20b7` | strided-rs #245 |
 | generic pad | `f875cc89` | strided-rs #246 |
 | integer zero preflight | `53ecd771` | strided-rs #248 |
+| generic additive scatter | `b40cd2f6` | strided-rs #252 |
 
 ## Medium Results
 
@@ -59,6 +61,7 @@ Implementation checkpoints:
 | single-axis reduction | 4.950 → 0.846 | 5.85x | 1.231 → 0.229 | 5.39x |
 | pad | 12.965 → 1.694 | 7.65x | 1.722 → 0.503 | 3.42x |
 | integer divide preflight | 4.103 → 1.267 | 3.24x | 4.349 → 1.147 | 3.79x |
+| additive scatter | 21.269 → 1.392 | 15.28x | 20.870 → 1.383 | 15.09x |
 
 ### Rank scaling
 
@@ -70,6 +73,7 @@ Implementation checkpoints:
 | single-axis reduction | 2.57x | 3.33x | 5.85x | 2.32x | 3.05x | 5.39x |
 | pad | 2.46x | 4.42x | 7.65x | 1.34x | 2.09x | 3.42x |
 | integer divide preflight | 1.33x | 1.82x | 3.24x | 1.84x | 2.27x | 3.79x |
+| additive scatter | 1.56x | 6.24x | 15.28x | 1.60x | 6.18x | 15.09x |
 
 ### Generic layout controls
 
@@ -81,6 +85,7 @@ Implementation checkpoints:
 | single-axis reduction | 3.37x | 3.35x | 3.02x | 2.85x |
 | pad | 1.99x | 2.29x | 1.41x | 1.34x |
 | integer divide preflight | 1.57x | 1.32x | 1.71x | 1.59x |
+| additive scatter | 1.58x | 1.57x | 1.60x | 1.58x |
 
 Existing specialized controls were retained in every upstream matrix. No
 accepted implementation had a material specialized-control regression.
@@ -93,7 +98,10 @@ that rank-multiplied work. Four-thread gains are smaller where memory traffic
 or existing partition overhead dominates, but remain positive for the generic
 layouts.
 
-The pad series uses the corrected same-domain run at strided-rs worklog commit
+The scatter series uses the corrected typed-storage black-box pair documented
+in `docs/worklogs/2026-08-25-issue-251-generic-scatter.md`; its earlier
+descriptor-only black-box baseline is explicitly INCONCLUSIVE. The pad series
+uses the corrected same-domain run at strided-rs worklog commit
 `03ed964e`; its earlier 7.5%-load candidate is explicitly reclassified
 INCONCLUSIVE. The integer-preflight series includes a documented discarded run
 where a shared Cargo target reused the baseline binary. Accepted

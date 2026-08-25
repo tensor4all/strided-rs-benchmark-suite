@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 strided_rs=${STRIDED_RS_DIR:-"$root/../strided-rs"}
-expected=${STRIDED_RS_REF:-53ecd7718169e69320078f4bb2609945140450ac}
+expected=${STRIDED_RS_REF:-b40cd2f6d83c35ca23b24a8fb371ca061495729c}
 actual=$(git -C "$strided_rs" rev-parse HEAD)
 if [[ "$actual" != "$expected" ]]; then
     echo "strided-rs is $actual; expected $expected" >&2
@@ -22,6 +22,7 @@ groups=(
     erased_axis_reduce_generic_rank_layout
     erased_pad_generic_rank_layout
     erased_integer_zip_preflight
+    erased_scatter_generic_rank_layout
 )
 
 for group in "${groups[@]}"; do
