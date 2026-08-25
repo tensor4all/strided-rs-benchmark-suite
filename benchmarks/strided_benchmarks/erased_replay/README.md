@@ -57,7 +57,7 @@ Implementation checkpoints:
 | dynamic slice | 17.956 → 0.618 | 29.07x | 1.669 → 0.219 | 7.63x |
 | dynamic update | 19.572 → 0.632 | 30.97x | 1.700 → 0.254 | 6.69x |
 | single-axis reduction | 4.950 → 0.846 | 5.85x | 1.231 → 0.229 | 5.39x |
-| pad | 13.561 → 1.608 | 8.43x | 1.803 → 0.515 | 3.50x |
+| pad | 12.965 → 1.694 | 7.65x | 1.722 → 0.503 | 3.42x |
 | integer divide preflight | 4.103 → 1.267 | 3.24x | 4.349 → 1.147 | 3.79x |
 
 ### Rank scaling
@@ -68,7 +68,7 @@ Implementation checkpoints:
 | dynamic slice | 8.74x | 17.26x | 29.07x | 2.79x | 4.56x | 7.63x |
 | dynamic update | 8.05x | 16.23x | 30.97x | 2.50x | 3.81x | 6.69x |
 | single-axis reduction | 2.57x | 3.33x | 5.85x | 2.32x | 3.05x | 5.39x |
-| pad | 2.56x | 4.83x | 8.43x | 1.35x | 2.30x | 3.50x |
+| pad | 2.46x | 4.42x | 7.65x | 1.34x | 2.09x | 3.42x |
 | integer divide preflight | 1.33x | 1.82x | 3.24x | 1.84x | 2.27x | 3.79x |
 
 ### Generic layout controls
@@ -79,7 +79,7 @@ Implementation checkpoints:
 | dynamic slice | 8.97x | 7.18x | 2.79x | 2.34x |
 | dynamic update | 8.01x | 7.38x | 2.46x | 2.22x |
 | single-axis reduction | 3.37x | 3.35x | 3.02x | 2.85x |
-| pad | 2.10x | 2.59x | 1.42x | 1.36x |
+| pad | 1.99x | 2.29x | 1.41x | 1.34x |
 | integer divide preflight | 1.57x | 1.32x | 1.71x | 1.59x |
 
 Existing specialized controls were retained in every upstream matrix. No
@@ -93,8 +93,10 @@ that rank-multiplied work. Four-thread gains are smaller where memory traffic
 or existing partition overhead dominates, but remain positive for the generic
 layouts.
 
-The integer-preflight series includes a documented discarded run where a shared
-Cargo target reused the baseline binary. Accepted baseline/candidate runs used
-separate target directories; unchanged Add controls were independently rerun.
-See strided-rs #213 and the dated worklogs at the pinned commit for confidence
-intervals, correctness gates, and measurement incident details.
+The pad series uses the corrected same-domain run at strided-rs worklog commit
+`03ed964e`; its earlier 7.5%-load candidate is explicitly reclassified
+INCONCLUSIVE. The integer-preflight series includes a documented discarded run
+where a shared Cargo target reused the baseline binary. Accepted
+baseline/candidate runs used separate target directories; unchanged Add
+controls were independently rerun. See strided-rs #213 and the dated worklogs
+for confidence intervals, correctness gates, and measurement incident details.
