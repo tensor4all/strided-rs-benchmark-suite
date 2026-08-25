@@ -100,3 +100,14 @@ where a shared Cargo target reused the baseline binary. Accepted
 baseline/candidate runs used separate target directories; unchanged Add
 controls were independently rerun. See strided-rs #213 and the dated worklogs
 for confidence intervals, correctness gates, and measurement incident details.
+
+## Review provenance
+
+- Initial publication commit `4dc92e95` received an exact read-only
+  `reviewer-flash` high-thinking verdict of **Correct-to-merge**; follow-up
+  `ff0998de` incorporated its reproducibility findings before PR #34 merged.
+- Corrected pad evidence commits `03ed964e` (strided-rs worklog) and `68d719e0`
+  (this page) received a joint exact read-only `reviewer-flash` high-thinking
+  verdict of **Correct-to-merge** before PRs #249 and #35 merged.
+- PR bodies preserve the exact reviewed commits and verdicts; no benchmark
+  implementation or public library API was added in this repository.
