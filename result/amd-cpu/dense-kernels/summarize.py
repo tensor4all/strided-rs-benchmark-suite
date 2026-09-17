@@ -70,6 +70,6 @@ lines += [
     "- Strict Clippy failed on pre-existing lint errors in unchanged dependency/basic code under Rust 1.97.1; both logs are retained. No passing strict-lint gate is claimed.",
     "- Quiet-host native measurements remain pending.",
     "- Tenferro consumer base is `d8759f4320a337d2399f4a87dfec55af51d2ebf1`; its exact uncommitted migration diff is raw/tenferro-migration.patch and the tested override is raw/cpu-kernel-migration-cargo.toml (local absolute paths).",
-    "- The tenferro git dependency pin has not been changed: normal builds still need the upstream strided change published/merged and the pin advanced. Local integration tests are not evidence of a ready-to-merge dependency chain.",
+    "- At measurement time the tenferro git dependency pin was unchanged; these historical local-override tests alone did not establish a ready-to-merge dependency chain. Subsequent integration is tracked by strided-rs PR259 (merged commit `5bc5ab75`) and tenferro-rs PR1807.",
 ]
 (root / "README.md").write_text("\n".join(lines) + "\n")

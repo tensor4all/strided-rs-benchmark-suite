@@ -4,6 +4,10 @@ Nonzero correctness checks and focused 1T measurements for tenferro's migrated
 AXPBY, triangular masks and diagonal embedding, plus the existing shared
 multiply SIMD path and uninitialized permutation copies. Requires strided-rs
 `78d519013e8b44bd80f77eb01d31039f0be9aae6` or compatible descendants.
+The merged integration revision is `5bc5ab75a20277f0c8820cb288b23f6bb6dfbd91`
+(strided-rs PR259, on `umbrella/issue-burndown-2026-08`, not yet `main`).
+Check out that revision in the existing sibling `../strided-rs` repository;
+the historical result tables retain the exact revisions actually measured.
 
 ```sh
 cargo build -j 16 --locked --release --no-default-features \
