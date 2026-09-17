@@ -1,0 +1,48 @@
+# Dense CPU kernels
+
+Nonzero correctness checks and focused 1T measurements for tenferro's migrated
+AXPBY, triangular masks and diagonal embedding, plus the existing shared
+multiply SIMD path. Requires strided-rs migration baseline
+`ec585b8a4bf0af96863a6136f0b1f8e9c1aeadba` or its descendants.
+
+```sh
+cargo build -j 16 --locked --release --no-default-features \
+  --features parallel,strided-kernel/simd --bin dense_kernels
+RAYON_NUM_THREADS=1 taskset -c 16 target/release/dense_kernels
+```
+
+The default mode checks every result; it does not print elapsed times.
+`BENCH_INSTANCE` selects one of `mul_2048`, `mul_odd`, `mul_strided`, `axpby_1m`,
+`tril_1024`, `triu_rect`, or `diag_rank2`. `BENCH_RUNS` defaults to 3, after one
+excluded warmup. Kernels always run under `ExecutionPolicy::Sequential`;
+thread count is independent of affinity and Cargo build jobs. No BLAS is used.
+
+## Instruction collection
+
+Build each revision in a clean sibling worktree using the committed Cargo.lock,
+and save separately named binaries. Run these sequentially, never during a build:
+
+```sh
+RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  BENCH_INSTANCE=mul_2048 BENCH_RUNS=3 taskset -c 16 \
+  valgrind --tool=callgrind --collect-atstart=no \
+    --toggle-collect=profile_dense --callgrind-out-file=mul.callgrind \
+    target/release/dense_kernels
+```
+
+`profile_dense` runs on the caller thread. Its windows exclude allocation,
+input preparation, view construction, restoration, warmup, timer calls and
+numerical verification. Read `summary:` and divide by BENCH_RUNS. Do not collect
+an entire process and label it kernel execution. Raw profiles, environment,
+checksums and the generated comparison are under
+[`result/amd-cpu/dense-kernels`](../../../../result/amd-cpu/dense-kernels/).
+
+## Native timing
+
+Only on a quiet host, check the selected core AND its complete L3 domain before
+running the same executable with `--time`. Choose a suitable CPU with taskset;
+16 is the recorded instruction-run affinity, not a universal recommendation.
+Use more samples, e.g. `BENCH_RUNS=21`. CSV output is case, threads, samples,
+median nanoseconds. Restoration and correctness checks remain outside timing.
+The current report contains instructions only, not wall-clock speedups or
+bandwidth measurements. Other users' jobs must not be stopped for this test.

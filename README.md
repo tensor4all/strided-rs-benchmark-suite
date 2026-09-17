@@ -10,7 +10,7 @@ This repository provides:
 - A **Rust** benchmark runner using [strided-opteinsum](https://github.com/tensor4all/strided-rs)
 - A **Julia** benchmark runner using [OMEinsum.jl](https://github.com/under-Peter/OMEinsum.jl)
 
-Only metadata is stored — tensors are generated at benchmark time (zero-filled), keeping the repo lightweight.
+Einsum fixtures store only metadata — their tensors are generated at benchmark time (zero-filled), keeping the repo lightweight. Dense-kernel microbenchmarks use nonzero correctness inputs.
 
 See [tensor4all/strided-rs#63](https://github.com/tensor4all/strided-rs/issues/63) for the full design discussion.
 
@@ -23,6 +23,10 @@ See [tensor4all/strided-rs#63](https://github.com/tensor4all/strided-rs/issues/6
   studies.
 - [Strided benchmarks](benchmarks/strided_benchmarks/README.md): kernel-level
   comparisons for `naive`, `strided-rs`, and HPTT where directly comparable.
+
+- [Dense CPU kernels](benchmarks/strided_benchmarks/dense_kernels/README.md):
+  migrated AXPBY/structural kernels and shared multiply SIMD, with isolated 1T
+  instruction windows and nonzero correctness checks.
 
 ## Project Structure
 
