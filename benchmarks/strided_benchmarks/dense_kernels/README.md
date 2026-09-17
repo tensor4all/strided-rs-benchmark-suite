@@ -2,8 +2,8 @@
 
 Nonzero correctness checks and focused 1T measurements for tenferro's migrated
 AXPBY, triangular masks and diagonal embedding, plus the existing shared
-multiply SIMD path. Requires strided-rs migration baseline
-`ec585b8a4bf0af96863a6136f0b1f8e9c1aeadba` or its descendants.
+multiply SIMD path and uninitialized permutation copies. Requires strided-rs
+`78d519013e8b44bd80f77eb01d31039f0be9aae6` or compatible descendants.
 
 ```sh
 cargo build -j 16 --locked --release --no-default-features \
@@ -13,7 +13,11 @@ RAYON_NUM_THREADS=1 taskset -c 16 target/release/dense_kernels
 
 The default mode checks every result; it does not print elapsed times.
 `BENCH_INSTANCE` selects one of `mul_2048`, `mul_odd`, `mul_strided`, `axpby_1m`,
-`tril_1024`, `triu_rect`, or `diag_rank2`. `BENCH_RUNS` defaults to 3, after one
+`tril_1024`, `triu_rect`, `diag_rank2`, `copy_contiguous`, `copy_transpose`,
+`copy_lm`, `copy_small`, `copy_negative`, or `copy_rank6`. For copy cases,
+`COPY_MAP_BASELINE=1` selects the previous generic-map implementation in the
+same binary. The default selects the uninitialized copy API.
+`BENCH_RUNS` defaults to 3, after one
 excluded warmup. Kernels always run under `ExecutionPolicy::Sequential`;
 thread count is independent of affinity and Cargo build jobs. No BLAS is used.
 
