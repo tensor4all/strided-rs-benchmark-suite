@@ -52,3 +52,8 @@ path = "benchmarks/strided_benchmarks/fused_elementwise/fused_elementwise.rs"
 [[bin]]
 name = "dense_kernels"
 path = "benchmarks/strided_benchmarks/dense_kernels/dense_kernels.rs"
+
+[[bin]]
+name = "kernel_scaling"
+path = "benchmarks/strided_benchmarks/kernel_scaling/kernel_scaling.rs"
+required-features = ["parallel"]
