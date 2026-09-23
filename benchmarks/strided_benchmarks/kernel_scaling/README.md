@@ -240,3 +240,27 @@ elementwise cases at 4T, where medians vary between runs (for example erased
 | `copy_slice_step2` | 5.41 | 1.34 | 4.53 | 1.32 | 1.31 | 1.63 |
 | `copy_pad` | 2.85 | 1.29 | 2.89 | 1.30 | 0.77 | 2.09 |
 | `copy_dynslice_rank2` | 10.12 | 0.85 | 10.52 | 0.84 | 0.80 | 1.30 |
+
+### Ternary cases (2026-09-23)
+
+Same host and settings, `BENCH_FILTER=ter_`. Before: strided-rs `b93cb6b`
+(main after v0.4.3). After: strided-rs `2570533` (v0.4.4 release commit, with
+tensor4all/strided-rs#277). Julia is the better of `julia_base` and
+`julia_strided`.
+
+| case | T | typed before | typed after | erased_uninit before | erased_uninit after | raw | Julia |
+|---|---|---|---|---|---|---|---|
+| `ter_select_f64_contig` | 1 | 7.82 | 7.80 | 15.68 | 8.21 | 7.83 | 7.81 |
+| `ter_select_f64_contig` | 4 | 3.40 | 3.37 | 11.55 | 3.78 | 3.30 | 3.63 |
+| `ter_clamp_f64_contig` | 1 | 11.06 | 10.96 | 20.63 | 10.98 | 10.98 | 8.76 |
+| `ter_clamp_f64_contig` | 4 | 3.75 | 3.71 | 5.37 | 3.72 | 3.74 | 4.50 |
+| `ter_select_f64_trans` | 1 | 32.16 | 30.55 | 39.82 | 30.80 | 40.71 | 36.67 |
+| `ter_select_f64_trans` | 4 | 14.51 | 13.16 | 24.44 | 25.05 | 19.59 | 12.00 |
+| `ter_clamp_f64_trans` | 1 | 62.68 | 63.37 | 58.85 | 61.58 | 76.00 | 54.92 |
+| `ter_clamp_f64_trans` | 4 | 20.00 | 18.93 | 19.99 | 20.00 | 22.78 | 15.59 |
+
+The gate flags only `ter_select_f64_trans` at 4T in the after run (erased
+1.90x of typed). That median does not reproduce: three reruns of the case alone
+gave erased/typed 1.22, 1.09, and 1.11, a rerun of all `ter_` cases 1.05, and
+80 samples 1.00 (15.27 ms against 15.30 ms). Transposed cases at 4T vary
+between runs on this unpinned host, as noted above for `ew_add_f64_trans`.
