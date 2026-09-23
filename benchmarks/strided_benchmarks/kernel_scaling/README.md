@@ -170,10 +170,58 @@ anything is flagged unless `--report-only` is given.
   include the output allocation.
 - Only f64 and Complex64 are exercised; f32 and integer dtypes are not.
 
-## Results: pending coordinator run
+## Results
 
-No timings have been recorded yet. Only correctness checks and a
-`KERNEL_SCALING_SHRINK=16` smoke run at 1T and 4T were executed, against
-strided-rs `c1c14a6` (v0.4.2) on macOS, where CPU pinning is unavailable.
-Record the strided-rs revision, host, CPU list, and `RUSTFLAGS` beside the
-tables when the measured results are added.
+Host: Apple M5 Max, macOS (Darwin 25.5.0). CPU pinning is unavailable on
+macOS, so no run was pinned. `RUSTFLAGS=-C target-cpu=native`,
+`BENCH_RUNS=11`, runs executed sequentially on an otherwise idle host.
+
+- Before: strided-rs `c1c14a6` (v0.4.2 release commit).
+- After: strided-rs `2b66201` (main with #271, #272, #273).
+- Julia: Strided 2.6.1, best of the Julia variants; Julia does not depend on
+  strided-rs, so the same Julia CSVs serve both columns.
+
+The gate (`gate.py --report-only`) reports 341 flags at `c1c14a6` and 31
+at `2b66201`. The remaining flags are typed `reduce_axis` along axis 1 at 1T
+(1.5x to 2.1x of raw), `copy_pad` at 4T (1.7x of raw), and transposed
+elementwise cases at 4T, where medians vary between runs (for example erased
+`ew_add_f64_trans` at 4T measured 30.2 ms against 20.7 ms before, with raw at
+20.3 ms). They are tracked in tensor4all/strided-rs#274.
+
+1 thread (median ms):
+
+| case | typed before | typed after | erased before | erased after | raw | Julia |
+|---|---|---|---|---|---|---|
+| `ew_add_f64_contig` | 6.40 | 6.86 | 21.17 | 6.88 | 6.67 | 6.47 |
+| `ew_add_f64_trans` | 57.87 | 54.36 | 61.06 | 55.62 | 61.95 | 46.28 |
+| `ew_max_f64_contig` | 6.95 | 6.56 | 24.28 | 6.73 | 6.53 | 6.47 |
+| `red_sum_all_8192x4096` | 17.30 | 2.96 | 3.21 | 3.09 | 3.05 | 2.99 |
+| `red_max_all_8192x4096` | 31.27 | 5.23 | 8.50 | 4.10 | 4.45 | 2.91 |
+| `red_sum_axis0_8192x4096` | 19.10 | 2.95 | 32.69 | 3.08 | 3.06 | 2.99 |
+| `red_sum_axis1_8192x4096` | 9.23 | 5.38 | 133.42 | 3.20 | 4.48 | 4.46 |
+| `red_max_axis0_8192x4096` | 46.77 | 5.00 | 46.88 | 4.13 | 4.46 | 2.91 |
+| `red_max_axis1_8192x4096` | 15.75 | 9.06 | 138.29 | 4.40 | 4.31 | 4.46 |
+| `copy_concat_axis0` | 2.16 | 2.12 | 2.17 | 2.16 | 1.76 | 3.90 |
+| `copy_reverse_axis0` | 4.79 | 3.24 | 4.77 | 3.22 | 3.30 | 4.57 |
+| `copy_slice_step2` | 4.20 | 4.03 | 5.86 | 4.00 | 3.44 | 3.98 |
+| `copy_pad` | 2.80 | 2.77 | 2.80 | 2.78 | 2.12 | 6.04 |
+| `copy_dynslice_rank2` | 26.49 | 2.22 | 28.35 | 2.23 | 2.04 | 3.87 |
+
+4 threads (median ms):
+
+| case | typed before | typed after | erased before | erased after | raw | Julia |
+|---|---|---|---|---|---|---|
+| `ew_add_f64_contig` | 2.62 | 2.60 | 5.90 | 2.49 | 2.56 | 3.05 |
+| `ew_add_f64_trans` | 22.02 | 21.51 | 20.68 | 30.19 | 20.30 | 13.55 |
+| `ew_max_f64_contig` | 2.50 | 2.52 | 6.68 | 2.49 | 2.47 | 3.43 |
+| `red_sum_all_8192x4096` | 5.20 | 0.94 | 5.14 | 0.96 | 1.10 | 2.63 |
+| `red_max_all_8192x4096` | 7.96 | 1.65 | 11.78 | 1.34 | 1.51 | 2.04 |
+| `red_sum_axis0_8192x4096` | 18.89 | 1.13 | 32.91 | 0.99 | 1.10 | 2.45 |
+| `red_sum_axis1_8192x4096` | 10.83 | 2.17 | 126.12 | 1.72 | 2.64 | 2.84 |
+| `red_max_axis0_8192x4096` | 45.49 | 1.73 | 46.55 | 1.36 | 1.51 | 2.05 |
+| `red_max_axis1_8192x4096` | 15.71 | 2.68 | 136.12 | 1.82 | 2.84 | 2.92 |
+| `copy_concat_axis0` | 2.19 | 0.81 | 2.17 | 0.81 | 0.77 | 1.32 |
+| `copy_reverse_axis0` | 5.07 | 1.13 | 4.73 | 1.11 | 1.14 | 1.60 |
+| `copy_slice_step2` | 5.41 | 1.34 | 4.53 | 1.32 | 1.31 | 1.63 |
+| `copy_pad` | 2.85 | 1.29 | 2.89 | 1.30 | 0.77 | 2.09 |
+| `copy_dynslice_rank2` | 10.12 | 0.85 | 10.52 | 0.84 | 0.80 | 1.30 |
