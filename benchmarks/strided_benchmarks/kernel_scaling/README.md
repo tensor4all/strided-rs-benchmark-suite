@@ -1,7 +1,7 @@
 # Kernel scaling
 
 Coverage for [tensor4all/strided-rs#269](https://github.com/tensor4all/strided-rs/issues/269):
-elementwise, reduction, and structural copy kernels measured through the erased
+elementwise, ternary select and clamp, reduction, and structural copy kernels measured through the erased
 entries, the typed entries, and a raw pointer baseline, at 1 and 4 threads,
 next to Julia Base and Strided.jl. A gate script turns the four defect classes
 of the issue into threshold checks:
@@ -12,6 +12,7 @@ of the issue into threshold checks:
 | Parallel reduce paths use a scalar single accumulator leaf | `red_*_all_*`, `red_*_axis0_*` versus raw 8 lane accumulators | (a), (c) |
 | Contiguous axis reductions with a strided output take the scalar general path | `red_*_axis1_*` (and axis0 with its compact output) | (b), (c), (d) |
 | CopyPlan structural ops have no parallel branch | `copy_*` at 4T versus 1T | (a) |
+| Erased select validated the bool predicate with a byte by byte `find` (2/3 of its time) and erased clamp tested NaN at each of the maximum and minimum steps; both only visible past the LLC ([strided-rs#277](https://github.com/tensor4all/strided-rs/pull/277)) | `ter_select_*`, `ter_clamp_*` erased_uninit versus typed and raw | (b), (c) |
 
 ## Files
 
@@ -113,6 +114,8 @@ unless stated.
 | Elementwise | `ew_{add,sub,mul,div,max,min,neg,abs}_f64_trans` | 8192 x 4096; lhs is row major (strides `[4096, 1]`), rhs and destination column major |
 | Elementwise | `ew_{add,mul,div,neg,conj,abs}_c64_contig` | 1D, 33554432 Complex64 (abs writes f64) |
 | Elementwise | `ew_conj_c64_trans` | 8192 x 4096 Complex64, transposed source |
+| Ternary | `ter_{select,clamp}_f64_contig` | 1D, 33554432 elements |
+| Ternary | `ter_{select,clamp}_f64_trans` | 8192 x 4096; the first operand (predicate or x) is row major, the other operands and the destination column major |
 | Reduction | `red_{sum,prod,max,min}_{all,axis0,axis1}_{8192x4096,2048x2048}` | column major source; axis0 reduces the contiguous axis, axis1 the strided axis |
 | Structural | `copy_slice_step2` | 8192 x 4096 to 4096 x 4096, step `[2, 1]` |
 | Structural | `copy_reverse_axis0`, `copy_reverse_axis1` | 4096 x 4096 |
@@ -124,16 +127,25 @@ unless stated.
 Binary max and min are NaN propagating, matching `ErasedZipOp::Maximum` and
 `Minimum`; the typed and raw closures use the same function.
 
+Select reads a bool predicate with the irregular pattern `(i*7919)%13 < 6`
+(0 based `i`), picking the lhs generator where true and the rhs generator
+otherwise. Clamp reads x from the lhs generator with a NaN at every 1021st
+element and full arrays `lo = -0.25`, `hi = 0.25` (the lhs generator hits both
+bounds exactly, so ties are exercised). The typed and raw closures use the
+strided semantics: `raised = lo >= x ? lo : x`, `lowered = hi <= raised ? hi :
+raised`, and NaN when any operand is NaN. Julia `clamp` agrees on these inputs
+because only x carries NaN.
+
 ## Variants
 
 | Variant | Rust entry | Julia API |
 |---|---|---|
-| `raw` | slice loops the compiler vectorizes, split into contiguous chunks over the same Rayon pool; 64 x 64 tiles for transposed reads; 8 lane accumulators (with a NaN flag for max/min) for reductions; `copy_nonoverlapping` or per column loops for copies | |
-| `typed` | `zip_map2_into`, `map_into`, `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` inside `ExecContext::run` | |
-| `erased` | `erased_zip_into`, `erased_map_into`, `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
-| `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit` (elementwise only) | |
-| `julia_base` | | elementwise: `out .= f.(a, b)` into a preallocated array; reductions: `sum(A)` etc. for all, `sum!(out, A)` etc. for dims |
-| `julia_strided` | | elementwise and copies: `@strided so .= ...` on `StridedView`s; reductions: `sum(StridedView(A))` for all, `sum!(StridedView(out), StridedView(A))` for dims |
+| `raw` | slice loops the compiler vectorizes (three input slices for select and clamp), split into contiguous chunks over the same Rayon pool; 64 x 64 tiles for transposed reads; 8 lane accumulators (with a NaN flag for max/min) for reductions; `copy_nonoverlapping` or per column loops for copies | |
+| `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` inside `ExecContext::run` | |
+| `erased` | `erased_zip_into`, `erased_map_into` (select and clamp have no initialized erased entry), `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
+| `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit`, `erased_select_into_uninit`, `erased_clamp_into_uninit` (elementwise and ternary only) | |
+| `julia_base` | | elementwise: `out .= f.(a, b)` into a preallocated array; ternary: `out .= ifelse.(p, a, b)`, `out .= clamp.(x, lo, hi)`; reductions: `sum(A)` etc. for all, `sum!(out, A)` etc. for dims |
+| `julia_strided` | | elementwise, ternary, and copies: `@strided so .= ...` on `StridedView`s; reductions: `sum(StridedView(A))` for all, `sum!(StridedView(out), StridedView(A))` for dims |
 | `julia_alloc` | | allocating Base call: `sum(A; dims=d)`, `A[1:2:end, :]`, `reverse(A; dims=d)`, `vcat` or `hcat`, `A[s+1:s+W, ...]` |
 | `julia_copyto` | | copies: `copyto!(out, view(A, ...))`; concat: two `copyto!` into views of `out`; pad: zero the four border strips, then `copyto!` the interior |
 
@@ -169,6 +181,9 @@ anything is flagged unless `--report-only` is given.
 - Typed reductions have no preallocated per axis entry, so `typed` axis rows
   include the output allocation.
 - Only f64 and Complex64 are exercised; f32 and integer dtypes are not.
+- Select and clamp are f64 only, and clamp bounds are full arrays rather
+  than stride 0 broadcasts. The results below predate the ternary cases;
+  their timings are pending.
 
 ## Results
 
@@ -225,3 +240,27 @@ elementwise cases at 4T, where medians vary between runs (for example erased
 | `copy_slice_step2` | 5.41 | 1.34 | 4.53 | 1.32 | 1.31 | 1.63 |
 | `copy_pad` | 2.85 | 1.29 | 2.89 | 1.30 | 0.77 | 2.09 |
 | `copy_dynslice_rank2` | 10.12 | 0.85 | 10.52 | 0.84 | 0.80 | 1.30 |
+
+### Ternary cases (2026-09-23)
+
+Same host and settings, `BENCH_FILTER=ter_`. Before: strided-rs `b93cb6b`
+(main after v0.4.3). After: strided-rs `2570533` (v0.4.4 release commit, with
+tensor4all/strided-rs#277). Julia is the better of `julia_base` and
+`julia_strided`.
+
+| case | T | typed before | typed after | erased_uninit before | erased_uninit after | raw | Julia |
+|---|---|---|---|---|---|---|---|
+| `ter_select_f64_contig` | 1 | 7.82 | 7.80 | 15.68 | 8.21 | 7.83 | 7.81 |
+| `ter_select_f64_contig` | 4 | 3.40 | 3.37 | 11.55 | 3.78 | 3.30 | 3.63 |
+| `ter_clamp_f64_contig` | 1 | 11.06 | 10.96 | 20.63 | 10.98 | 10.98 | 8.76 |
+| `ter_clamp_f64_contig` | 4 | 3.75 | 3.71 | 5.37 | 3.72 | 3.74 | 4.50 |
+| `ter_select_f64_trans` | 1 | 32.16 | 30.55 | 39.82 | 30.80 | 40.71 | 36.67 |
+| `ter_select_f64_trans` | 4 | 14.51 | 13.16 | 24.44 | 25.05 | 19.59 | 12.00 |
+| `ter_clamp_f64_trans` | 1 | 62.68 | 63.37 | 58.85 | 61.58 | 76.00 | 54.92 |
+| `ter_clamp_f64_trans` | 4 | 20.00 | 18.93 | 19.99 | 20.00 | 22.78 | 15.59 |
+
+The gate flags only `ter_select_f64_trans` at 4T in the after run (erased
+1.90x of typed). That median does not reproduce: three reruns of the case alone
+gave erased/typed 1.22, 1.09, and 1.11, a rerun of all `ter_` cases 1.05, and
+80 samples 1.00 (15.27 ms against 15.30 ms). Transposed cases at 4T vary
+between runs on this unpinned host, as noted above for `ew_add_f64_trans`.
