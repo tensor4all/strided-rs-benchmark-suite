@@ -1,6 +1,6 @@
 //! Kernel scaling coverage for strided-rs#269.
 //!
-//! Elementwise (erased, typed, raw), reductions (erased plan, typed reduce,
+//! Elementwise and ternary select/clamp (erased, typed, raw), reductions (erased plan, typed reduce,
 //! raw multi-accumulator) and structural copy plans (erased plan, typed plan,
 //! raw memcpy/loop) at an enforced thread count. Setup, allocation, descriptor
 //! construction and correctness checks are outside timed regions. The typed
@@ -25,8 +25,9 @@ use std::{
     time::Instant,
 };
 use strided_kernel::{
-    erased_map_into, erased_map_into_uninit, erased_zip_into, erased_zip_into_uninit, map_into,
-    reduce, reduce_axis, zip_map2_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
+    erased_clamp_into_uninit, erased_map_into, erased_map_into_uninit, erased_select_into_uninit,
+    erased_zip_into, erased_zip_into_uninit, map_into, reduce, reduce_axis, zip_map2_into,
+    zip_map3_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
     ErasedDynamicSlicePlan, ErasedMapOp, ErasedPadPlan, ErasedRawStridedMut, ErasedRawStridedPtr,
     ErasedRawStridedRef, ErasedRawStridedUninitMut, ErasedReducePlan, ErasedReversePlan,
     ErasedSlicePlan, ErasedZipOp, ExecContext, KernelDType, KernelStorageElement, PadPlan,
@@ -615,6 +616,189 @@ fn elementwise(cfg: &Cfg) {
     bench_unary::<Complex64, Complex64>(cfg, "conj", c, ErasedMapOp::Conj, |a| a.conj());
     bench_unary::<Complex64, f64>(cfg, "abs", c, ErasedMapOp::Abs, |a| a.norm());
     bench_unary::<Complex64, Complex64>(cfg, "conj", Layout::Trans, ErasedMapOp::Conj, |a| a.conj());
+}
+
+// ---------------------------------------------------------------------------
+// Ternary elementwise: select and clamp
+// ---------------------------------------------------------------------------
+
+/// Irregular predicate pattern shared with the Julia script (0-based `i`).
+fn gen_pred(i: usize) -> bool {
+    (i * 7919) % 13 < 6
+}
+
+/// Clamp operand: the lhs generator with a sparse NaN to exercise propagation.
+fn gen_clamp_x(i: usize) -> f64 {
+    if i % 1021 == 0 {
+        f64::NAN
+    } else {
+        f64::gen(i, 0)
+    }
+}
+
+/// Scalar clamp with the strided semantics: any NaN operand gives NaN, ties
+/// return the bound, and `lo > hi` returns `hi`.
+#[inline(always)]
+fn nan_clamp(x: f64, lo: f64, hi: f64) -> f64 {
+    let raised = if lo >= x { lo } else { x };
+    let lowered = if hi <= raised { hi } else { raised };
+    if x.is_nan() | lo.is_nan() | hi.is_nan() {
+        f64::NAN
+    } else {
+        lowered
+    }
+}
+
+/// Exact comparison that treats every NaN as equal.
+fn same_f64(a: f64, b: f64) -> bool {
+    a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan())
+}
+
+/// `out[k] = f(p[lhs(k)], b[k], c[k])` with f64 output. The first operand uses
+/// the lhs layout (row major for `Trans`), the others and the destination are
+/// column major. There is no initialized erased select or clamp entry, so the
+/// erased rows use the uninitialized destination entries only.
+#[allow(clippy::too_many_arguments)]
+fn bench_ternary<P: KernelStorageElement + Send + Sync + std::fmt::Debug>(
+    cfg: &Cfg,
+    opname: &str,
+    layout: Layout,
+    gen_p: impl Fn(usize) -> P,
+    gen_b: impl Fn(usize) -> f64,
+    gen_c: impl Fn(usize) -> f64,
+    f: impl Fn(P, f64, f64) -> f64 + Sync + Send + Copy,
+    erased: impl Fn(
+        &ExecContext,
+        &mut ErasedRawStridedUninitMut<'_>,
+        &ErasedRawStridedPtr<'_>,
+        &ErasedRawStridedPtr<'_>,
+        &ErasedRawStridedPtr<'_>,
+    ),
+) {
+    let case = format!("ter_{opname}_f64_{}", layout_label(layout));
+    if !cfg.enabled(&case) {
+        return;
+    }
+    let s = ew_shape(cfg, layout);
+    let p: Vec<P> = (0..s.len).map(gen_p).collect();
+    let b: Vec<f64> = (0..s.len).map(gen_b).collect();
+    let c: Vec<f64> = (0..s.len).map(gen_c).collect();
+    let mut out = vec![f64::NAN; s.len];
+    let expected = |k: usize| f(p[lhs_offset(&s, k)], b[k], c[k]);
+    let sentinel = -12345.0;
+
+    // raw
+    out.fill(sentinel);
+    {
+        let (pp, pb, pc, pd) = (
+            SendConst(p.as_ptr()),
+            SendConst(b.as_ptr()),
+            SendConst(c.as_ptr()),
+            SendPtr(out.as_mut_ptr()),
+        );
+        let (rows, cols, len) = (s.rows, s.cols, s.len);
+        let threads = cfg.threads;
+        cfg.measure(&case, "raw", || {
+            if cols == 1 {
+                par_ranges(threads, len, 4096, |lo, hi| unsafe {
+                    let d = std::slice::from_raw_parts_mut(pd.get().add(lo), hi - lo);
+                    let x = std::slice::from_raw_parts(pp.get().add(lo), hi - lo);
+                    let y = std::slice::from_raw_parts(pb.get().add(lo), hi - lo);
+                    let z = std::slice::from_raw_parts(pc.get().add(lo), hi - lo);
+                    for (((d, &x), &y), &z) in d.iter_mut().zip(x).zip(y).zip(z) {
+                        *d = f(x, y, z);
+                    }
+                });
+            } else {
+                par_ranges(threads, cols, TILE, |c0, c1| unsafe {
+                    let (p, b, c, d) = (pp.get(), pb.get(), pc.get(), pd.get());
+                    for jb in (c0..c1).step_by(TILE) {
+                        let je = (jb + TILE).min(c1);
+                        for ib in (0..rows).step_by(TILE) {
+                            let ie = (ib + TILE).min(rows);
+                            for j in jb..je {
+                                for i in ib..ie {
+                                    let k = i + j * rows;
+                                    *d.add(k) = f(*p.add(j + i * cols), *b.add(k), *c.add(k));
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            black_box(pd.get());
+        });
+    }
+    check_all(&case, "raw", &out, same_f64, expected);
+    cfg.ok(&case, "raw");
+
+    // typed
+    out.fill(sentinel);
+    {
+        let pv: StridedView<P> = StridedView::new(&p, &s.dims, &s.lhs_strides, 0).unwrap();
+        let bv: StridedView<f64> = StridedView::new(&b, &s.dims, &s.col_strides, 0).unwrap();
+        let cv: StridedView<f64> = StridedView::new(&c, &s.dims, &s.col_strides, 0).unwrap();
+        let mut dv = StridedViewMut::new(&mut out, &s.dims, &s.col_strides, 0).unwrap();
+        cfg.measure(&case, "typed", || {
+            cfg.exec.run(|| {
+                zip_map3_into(&mut dv, black_box(&pv), black_box(&bv), black_box(&cv), f).unwrap()
+            });
+            black_box(&mut dv);
+        });
+    }
+    check_all(&case, "typed", &out, same_f64, expected);
+    cfg.ok(&case, "typed");
+    drop(out);
+
+    // erased (uninitialized destination)
+    let mut out_u = vec![MaybeUninit::<f64>::uninit(); s.len];
+    {
+        let pr = ErasedRawStridedRef::from_slice(&p, &s.dims, &s.lhs_strides, 0).unwrap();
+        let br = ErasedRawStridedRef::from_slice(&b, &s.dims, &s.col_strides, 0).unwrap();
+        let cr = ErasedRawStridedRef::from_slice(&c, &s.dims, &s.col_strides, 0).unwrap();
+        let (pp, bp, cp) = (
+            ErasedRawStridedPtr::from_ref(&pr),
+            ErasedRawStridedPtr::from_ref(&br),
+            ErasedRawStridedPtr::from_ref(&cr),
+        );
+        let mut dest =
+            ErasedRawStridedUninitMut::from_uninit_slice(&mut out_u, &s.dims, &s.col_strides, 0).unwrap();
+        cfg.measure(&case, "erased_uninit", || {
+            erased(&cfg.exec, &mut dest, black_box(&pp), black_box(&bp), black_box(&cp));
+            black_box(&mut dest);
+        });
+    }
+    check_all(&case, "erased_uninit", assume_init(&out_u), same_f64, expected);
+    cfg.ok(&case, "erased_uninit");
+}
+
+fn ternary(cfg: &Cfg) {
+    for layout in [Layout::Contig, Layout::Trans] {
+        bench_ternary(
+            cfg,
+            "select",
+            layout,
+            gen_pred,
+            |i| f64::gen(i, 0),
+            |i| f64::gen(i, 1),
+            |p: bool, a: f64, b: f64| if p { a } else { b },
+            |ctx, dest, p, a, b| {
+                erased_select_into_uninit(KernelDType::F64, ctx, dest, p, a, b).unwrap()
+            },
+        );
+        bench_ternary(
+            cfg,
+            "clamp",
+            layout,
+            gen_clamp_x,
+            |_| -0.25,
+            |_| 0.25,
+            nan_clamp,
+            |ctx, dest, x, lo, hi| {
+                erased_clamp_into_uninit(KernelDType::F64, ctx, dest, x, lo, hi).unwrap()
+            },
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1273,6 +1457,7 @@ fn main() {
             println!("case,variant,threads,median_ns,samples");
         }
         elementwise(&cfg);
+        ternary(&cfg);
         reductions(&cfg);
         structural(&cfg);
     });

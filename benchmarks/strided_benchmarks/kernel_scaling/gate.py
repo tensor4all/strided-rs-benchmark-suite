@@ -13,6 +13,10 @@ prints one table row per (case, threads) and flags:
   (d) julia:    a strided variant is more than JULIA x slower than the
                 fastest Julia variant at the same thread count.
 
+The checks are keyed only on case and variant names, so every family,
+including the ternary `ter_select_*` and `ter_clamp_*` cases (which have
+only an `erased_uninit` erased row), goes through the same flags.
+
 Exits 1 when anything is flagged, unless --report-only is given.
 Standard library only.
 """

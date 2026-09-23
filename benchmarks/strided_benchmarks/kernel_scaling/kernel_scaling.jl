@@ -156,6 +156,62 @@ bench_unary("abs", ComplexF64, "contig", abs)
 bench_unary("conj", ComplexF64, "trans", conj)
 
 # ---------------------------------------------------------------------------
+# Ternary elementwise: select and clamp
+# ---------------------------------------------------------------------------
+
+genp(i) = (i * 7919) % 13 < 6                     # irregular predicate, 0-based i
+genx_clamp(i) = i % 1021 == 0 ? NaN : genl(i)     # sparse NaN exercises propagation
+
+# Same semantics as strided: any NaN operand gives NaN, ties return the bound.
+function nanclamp(x, lo, hi)
+    raised = lo >= x ? lo : x
+    lowered = hi <= raised ? hi : raised
+    return (isnan(x) | isnan(lo) | isnan(hi)) ? NaN : lowered
+end
+
+# The first operand uses the lhs layout (transposed for `trans`), the others
+# and the destination are column major, like the Rust side.
+function ter_operands(layout, gen_p, gen_b, gen_c)
+    if layout == "contig"
+        n = n1(33_554_432)
+        return [gen_p(i) for i in 0:n-1], [gen_b(i) for i in 0:n-1], [gen_c(i) for i in 0:n-1]
+    else
+        R, C = d(8192), d(4096)
+        p = transpose(reshape([gen_p(i) for i in 0:R*C-1], C, R))
+        b = reshape([gen_b(i) for i in 0:R*C-1], R, C)
+        c = reshape([gen_c(i) for i in 0:R*C-1], R, C)
+        return p, b, c
+    end
+end
+
+function bench_ternary(opname, layout, gen_p, gen_b, gen_c, f, fref)
+    case = "ter_$(opname)_f64_$layout"
+    enabled(case) || return
+    p, b, c = ter_operands(layout, gen_p, gen_b, gen_c)
+    expected = similar(b)
+    for I in eachindex(IndexCartesian(), b)
+        expected[I] = fref(p[I], b[I], c[I])
+    end
+    out = similar(b)
+    fill!(out, -12345.0)
+    measure(case, "julia_base") do
+        out .= f.(p, b, c)
+    end
+    check(case, "julia_base", out, expected)
+    fill!(out, -12345.0)
+    sp, sb, sc, so = StridedView(p), StridedView(b), StridedView(c), StridedView(out)
+    measure(case, "julia_strided") do
+        @strided so .= f.(sp, sb, sc)
+    end
+    check(case, "julia_strided", out, expected)
+end
+
+for layout in ("contig", "trans")
+    bench_ternary("select", layout, genp, genl, genr, ifelse, (p, a, b) -> p ? a : b)
+    bench_ternary("clamp", layout, genx_clamp, _ -> -0.25, _ -> 0.25, clamp, nanclamp)
+end
+
+# ---------------------------------------------------------------------------
 # Reductions
 # ---------------------------------------------------------------------------
 
