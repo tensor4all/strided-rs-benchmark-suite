@@ -2,15 +2,6 @@
 
 Benchmark results are grouped by what is being measured.
 
-## Einsum Benchmarks
-
-Full contraction benchmarks and focused einsum case studies:
-
-- [Full einsum benchmark suite](einsum_benchmarks/README.md): repository-level
-  `strided-opteinsum` versus OMEinsum.jl results.
-- [TN light 415 late-step case study](einsum_benchmarks/tn_light_415_late_step/README.md):
-  focused late-step contraction from `tensornetwork_permutation_light_415`.
-
 ## Strided Benchmarks
 
 Kernel-level benchmarks. Each page compares a credible naive baseline against
