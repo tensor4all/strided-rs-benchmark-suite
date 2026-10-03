@@ -72,7 +72,7 @@ EOF
 build() {
     write_manifest
     echo "==> building kernel_scaling against $strided_rs ($rev)" >&2
-    STRIDED_RS_REV="$rev" cargo build --release --manifest-path "$build_dir/Cargo.toml" >&2
+    STRIDED_RS_REV="$rev" cargo build -j 16 --release --manifest-path "$build_dir/Cargo.toml" >&2
 }
 
 # Run a command pinned to `threads` CPUs where the platform allows it.

@@ -117,6 +117,7 @@ unless stated.
 | Ternary | `ter_{select,clamp}_f64_contig` | 1D, 33554432 elements |
 | Ternary | `ter_{select,clamp}_f64_trans` | 8192 x 4096; the first operand (predicate or x) is row major, the other operands and the destination column major |
 | Reduction | `red_{sum,prod,max,min}_{all,axis0,axis1}_{8192x4096,2048x2048}` | column major source; axis0 reduces the contiguous axis, axis1 the strided axis |
+| Transposed multiply | `tmul_{f64,c64}_{2048x2048,32x32x32x32}_{bt,at}` | destination and one operand column major, the other operand row major relative to the destination: `bt` transposes the rhs (B), `at` the lhs (A). Rank 4 reverses all four strides |
 | Structural | `copy_slice_step2` | 8192 x 4096 to 4096 x 4096, step `[2, 1]` |
 | Structural | `copy_reverse_axis0`, `copy_reverse_axis1` | 4096 x 4096 |
 | Structural | `copy_concat_axis0`, `copy_concat_axis1` | two halves into 4096 x 4096 |
@@ -144,6 +145,8 @@ because only x carries NaN.
 | `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` inside `ExecContext::run` | |
 | `erased` | `erased_zip_into`, `erased_map_into` (select and clamp have no initialized erased entry), `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
 | `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit`, `erased_select_into_uninit`, `erased_clamp_into_uninit` (elementwise and ternary only) | |
+| `mul_into` | `mul_into` inside `ExecContext::run` (`tmul_*` only) | |
+| `zip_map2_into` | `zip_map2_into` with the closure `x * y` inside `ExecContext::run` (`tmul_*` only) | |
 | `julia_base` | | elementwise: `out .= f.(a, b)` into a preallocated array; ternary: `out .= ifelse.(p, a, b)`, `out .= clamp.(x, lo, hi)`; reductions: `sum(A)` etc. for all, `sum!(out, A)` etc. for dims |
 | `julia_strided` | | elementwise, ternary, and copies: `@strided so .= ...` on `StridedView`s; reductions: `sum(StridedView(A))` for all, `sum!(StridedView(out), StridedView(A))` for dims |
 | `julia_alloc` | | allocating Base call: `sum(A; dims=d)`, `A[1:2:end, :]`, `reverse(A; dims=d)`, `vcat` or `hcat`, `A[s+1:s+W, ...]` |
@@ -171,6 +174,21 @@ Strided variants are `typed`, `erased`, and `erased_uninit`. Flags:
 `--min-ns` skips (b), (c) and (d) when the strided side is below that many ns
 (default 0). `--filter` restricts to matching cases. The script exits 1 when
 anything is flagged unless `--report-only` is given.
+
+## Transposed multiply rows
+
+The `tmul_*` rows ([strided-rs#285](https://github.com/tensor4all/strided-rs/pull/285))
+cover the case where `mul_into` leaves a transposed input to the blocked
+kernel instead of the contiguous range fast path. They need strided-rs at or
+after `0a94a7a` (on `main` since `af851bf`; measured against `7baaad2` for the
+smoke check). The suite `Cargo.toml` resolves strided-rs through the sibling
+path, so there is no pin to bump; point `STRIDED_RS_DIR` at a checkout that
+contains `0a94a7a`. They also serve as the baseline for the
+`compute_block_sizes` tile tuning follow-up. Timings are not recorded yet;
+record them, with the strided-rs hash, on a quiet host:
+`BENCH_FILTER=tmul_ run.sh rust 1`, `... rust 4`, and the Julia counterparts.
+The gate applies (a) and (d) to `mul_into` and `zip_map2_into`; these rows have
+no `raw` or `erased` variants.
 
 ## Not covered
 

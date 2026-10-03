@@ -156,6 +156,48 @@ bench_unary("abs", ComplexF64, "contig", abs)
 bench_unary("conj", ComplexF64, "trans", conj)
 
 # ---------------------------------------------------------------------------
+# Transposed-operand multiply (strided-rs#285): destination and one operand
+# column major, the other operand transposed (row major relative to the
+# destination). `at`: lhs transposed; `bt`: rhs transposed.
+# ---------------------------------------------------------------------------
+
+function bench_tmul(T, dims, transposed_lhs)
+    nominal = length(dims) == 2 ? "2048x2048" : "32x32x32x32"
+    case = "tmul_$(T == Float64 ? "f64" : "c64")_$(nominal)_$(transposed_lhs ? "at" : "bt")"
+    enabled(case) || return
+    N = length(dims)
+    len = prod(dims)
+    gl = T == Float64 ? genl : (i -> genc(i, 0))
+    gr = T == Float64 ? genr : (i -> genc(i, 1))
+    plain(g) = reshape([g(i) for i in 0:len-1], dims...)
+    # Lazy transpose of a buffer laid out with reversed extents, like Rust's
+    # row-major strides.
+    perm(g) = PermutedDimsArray(reshape([g(i) for i in 0:len-1], reverse(dims)...), ntuple(i -> N + 1 - i, N))
+    a = transposed_lhs ? perm(gl) : plain(gl)
+    b = transposed_lhs ? plain(gr) : perm(gr)
+    expected = Array{T}(undef, dims...)
+    for I in eachindex(IndexCartesian(), expected)
+        expected[I] = a[I] * b[I]
+    end
+    out = similar(expected)
+    fill!(out, T(NaN))
+    measure(case, "julia_base") do
+        out .= a .* b
+    end
+    check(case, "julia_base", out, expected)
+    fill!(out, T(NaN))
+    sa, sb, so = StridedView(a), StridedView(b), StridedView(out)
+    measure(case, "julia_strided") do
+        @strided so .= sa .* sb
+    end
+    check(case, "julia_strided", out, expected)
+end
+
+for dims in ([d(2048), d(2048)], fill(d(32), 4)), transposed_lhs in (false, true), T in (Float64, ComplexF64)
+    bench_tmul(T, dims, transposed_lhs)
+end
+
+# ---------------------------------------------------------------------------
 # Ternary elementwise: select and clamp
 # ---------------------------------------------------------------------------
 
