@@ -28,7 +28,7 @@ import os
 import sys
 from collections import defaultdict
 
-STRIDED = ("typed", "erased", "erased_uninit")
+STRIDED = ("typed", "erased", "erased_uninit", "mul_into", "zip_map2_into")
 RAW = "raw"
 
 

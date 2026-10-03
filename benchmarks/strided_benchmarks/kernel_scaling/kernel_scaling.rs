@@ -26,8 +26,8 @@ use std::{
 };
 use strided_kernel::{
     erased_clamp_into_uninit, erased_map_into, erased_map_into_uninit, erased_select_into_uninit,
-    erased_zip_into, erased_zip_into_uninit, map_into, reduce, reduce_axis, zip_map2_into,
-    zip_map3_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
+    erased_zip_into, erased_zip_into_uninit, map_into, mul_into, reduce, reduce_axis,
+    zip_map2_into, zip_map3_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
     ErasedDynamicSlicePlan, ErasedMapOp, ErasedPadPlan, ErasedRawStridedMut, ErasedRawStridedPtr,
     ErasedRawStridedRef, ErasedRawStridedUninitMut, ErasedReducePlan, ErasedReversePlan,
     ErasedSlicePlan, ErasedZipOp, ExecContext, KernelDType, KernelStorageElement, PadPlan,
@@ -616,6 +616,110 @@ fn elementwise(cfg: &Cfg) {
     bench_unary::<Complex64, Complex64>(cfg, "conj", c, ErasedMapOp::Conj, |a| a.conj());
     bench_unary::<Complex64, f64>(cfg, "abs", c, ErasedMapOp::Abs, |a| a.norm());
     bench_unary::<Complex64, Complex64>(cfg, "conj", Layout::Trans, ErasedMapOp::Conj, |a| a.conj());
+}
+
+// ---------------------------------------------------------------------------
+// Transposed-operand multiply (strided-rs#285 range-path change)
+// ---------------------------------------------------------------------------
+
+/// `mul_into` and `zip_map2_into` with the destination and one operand column
+/// major and the other operand transposed (row major relative to the
+/// destination). `at`: the lhs is transposed; `bt`: the rhs is transposed.
+fn bench_tmul<T: Elem + std::ops::Mul<Output = T>>(
+    cfg: &Cfg,
+    dims: &[usize],
+    transposed_lhs: bool,
+) {
+    let nominal = if dims.len() == 2 {
+        "2048x2048"
+    } else {
+        "32x32x32x32"
+    };
+    let side = if transposed_lhs { "at" } else { "bt" };
+    let case = format!("tmul_{}_{nominal}_{side}", T::NAME);
+    if !cfg.enabled(&case) {
+        return;
+    }
+    let len: usize = dims.iter().product();
+    let col: Vec<isize> = {
+        let mut acc = 1isize;
+        dims.iter()
+            .map(|&d| {
+                let s = acc;
+                acc *= d as isize;
+                s
+            })
+            .collect()
+    };
+    let row: Vec<isize> = {
+        let mut acc = 1isize;
+        let mut v: Vec<isize> = dims
+            .iter()
+            .rev()
+            .map(|&d| {
+                let s = acc;
+                acc *= d as isize;
+                s
+            })
+            .collect();
+        v.reverse();
+        v
+    };
+    let (a_strides, b_strides) = if transposed_lhs {
+        (&row, &col)
+    } else {
+        (&col, &row)
+    };
+    let a: Vec<T> = (0..len).map(|i| T::gen(i, 0)).collect();
+    let b: Vec<T> = (0..len).map(|i| T::gen(i, 1)).collect();
+    let mut out = vec![T::sentinel(); len];
+    // Buffer offset of destination linear index `k` (column major) under `strides`.
+    let offset = |k: usize, strides: &[isize]| {
+        let mut k = k;
+        let mut off = 0isize;
+        for (&d, &s) in dims.iter().zip(strides) {
+            off += (k % d) as isize * s;
+            k /= d;
+        }
+        off as usize
+    };
+    let expected = |k: usize| a[offset(k, a_strides)] * b[offset(k, b_strides)];
+
+    let av: StridedView<T> = StridedView::new(&a, dims, a_strides, 0).unwrap();
+    let bv: StridedView<T> = StridedView::new(&b, dims, b_strides, 0).unwrap();
+    {
+        let mut dv = StridedViewMut::new(&mut out, dims, &col, 0).unwrap();
+        cfg.measure(&case, "mul_into", || {
+            cfg.exec
+                .run(|| mul_into(&mut dv, black_box(&av), black_box(&bv)).unwrap());
+            black_box(&mut dv);
+        });
+    }
+    check_all(&case, "mul_into", &out, T::close, expected);
+    cfg.ok(&case, "mul_into");
+
+    out.fill(T::sentinel());
+    {
+        let mut dv = StridedViewMut::new(&mut out, dims, &col, 0).unwrap();
+        cfg.measure(&case, "zip_map2_into", || {
+            cfg.exec.run(|| {
+                zip_map2_into(&mut dv, black_box(&av), black_box(&bv), |x, y| x * y).unwrap()
+            });
+            black_box(&mut dv);
+        });
+    }
+    check_all(&case, "zip_map2_into", &out, T::close, expected);
+    cfg.ok(&case, "zip_map2_into");
+}
+
+fn transposed_mul(cfg: &Cfg) {
+    let shapes = [vec![cfg.d(2048), cfg.d(2048)], vec![cfg.d(32); 4]];
+    for dims in &shapes {
+        for transposed_lhs in [false, true] {
+            bench_tmul::<f64>(cfg, dims, transposed_lhs);
+            bench_tmul::<Complex64>(cfg, dims, transposed_lhs);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1457,6 +1561,7 @@ fn main() {
             println!("case,variant,threads,median_ns,samples");
         }
         elementwise(&cfg);
+        transposed_mul(&cfg);
         ternary(&cfg);
         reductions(&cfg);
         structural(&cfg);
