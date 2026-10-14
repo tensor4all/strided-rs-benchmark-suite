@@ -13,6 +13,7 @@ together.
 | [Fused elementwise kernels](fused_elementwise/README.md) | per-op reused buffers versus `fused_elementwise_into` static runtime-DAG specializations and interpreter fallback | Not applicable |
 | [Erased replay rank/layout scaling](erased_replay/README.md) | before/after generic gather, dynamic slice/update, axis reduction, pad, and integer preflight across ranks/layouts/threads | Not applicable |
 | [Kernel scaling](kernel_scaling/README.md) | erased versus typed versus raw baselines for elementwise, reduction, and structural copy plans at 1T and 4T, plus Julia Base and Strided.jl, with a threshold gate (strided-rs#269) | Not applicable |
+| [Raw copy/scale/axpy rank boundary](raw_rank_boundary/README.md) | `copy_scale_raw`/`axpy_raw`/`CopyPlan` and the matching view entry points across the fused-rank limit for contiguous, padded, and reversed layouts | Not applicable |
 
 ## Result Policy
 
