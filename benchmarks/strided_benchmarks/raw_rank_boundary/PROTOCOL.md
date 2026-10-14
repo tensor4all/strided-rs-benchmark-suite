@@ -31,6 +31,12 @@ v3 case sets (the issue's own framing: original rank vs the rank-8 boundary):
   fused replay, so both improvements and small regressions are expected and are
   reported case by case.
 
+Later additions: the same harnesses were also run for the view entry points
+(`axpy`, `copy_scale`, `copy_into`), and the follow-up measurements in the README
+(runtime-SIMD dispatch for the raw contiguous case, and instruction-set detection
+cost) were taken on the same host. Both are reported beside the predeclared
+result, not instead of it.
+
 Everything else is as in v2: baseline `7bb8022`, candidate = branch under test,
 harness `/tmp/raw300/harness.rs`, rustc 1.97.1 release, AMD EPYC 7713P,
 `taskset -c 5`, `RAYON_NUM_THREADS=1`, 15 interleaved repetitions, median as the
