@@ -132,8 +132,9 @@ fn verify_threads(cfg: &Cfg) {
     let n = 1 << 22;
     let src = vec![1.0f64; n];
     let mut dst = vec![0.0f64; n];
-    let sv: StridedView<f64> = StridedView::new(&src, &[n], &[1], 0).unwrap();
-    let mut dv = StridedViewMut::new(&mut dst, &[n], &[1], 0).unwrap();
+    let dims = [n];
+    let sv: StridedView<f64> = StridedView::new(&src, &dims, &[1], 0).unwrap();
+    let mut dv = StridedViewMut::new(&mut dst, &dims, &[1], 0).unwrap();
     for flag in &SEEN_WORKER {
         flag.store(false, Ordering::Relaxed);
     }
