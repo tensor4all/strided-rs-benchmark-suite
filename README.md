@@ -14,6 +14,8 @@ repository's git history.
 
 - [Benchmark index](benchmarks/README.md): entry point for all result pages.
 - [Strided benchmarks](benchmarks/strided_benchmarks/README.md)
+- [Fused softmax](benchmarks/strided_benchmarks/softmax/README.md): axis-0
+  softmax throughput and steady-state allocations for `strided-nn`.
 - [Dense CPU kernels](benchmarks/strided_benchmarks/dense_kernels/README.md):
   migrated AXPBY/structural kernels and shared multiply SIMD, with isolated 1T
   instruction windows and nonzero correctness checks.
