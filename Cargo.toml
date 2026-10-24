@@ -17,7 +17,9 @@ inherits = "release"
 debug = true
 
 [dependencies]
+strided-basic = { path = "../strided-rs/strided-basic" }
 strided-kernel = { path = "../strided-rs/strided-kernel", default-features = false }
+strided-nn = { path = "../strided-rs/strided-nn" }  # 0.1.1
 strided-view = { path = "../strided-rs/strided-view" }
 strided-perm = { path = "../strided-rs/strided-perm" }
 num-complex = "0.4"
@@ -42,6 +44,11 @@ path = "benchmarks/strided_benchmarks/fused_elementwise/fused_elementwise.rs"
 [[bin]]
 name = "dense_kernels"
 path = "benchmarks/strided_benchmarks/dense_kernels/dense_kernels.rs"
+
+[[bin]]
+name = "softmax"
+path = "benchmarks/strided_benchmarks/softmax/softmax.rs"
+required-features = ["parallel"]
 
 [[bin]]
 name = "kernel_scaling"
