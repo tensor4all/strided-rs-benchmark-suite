@@ -159,7 +159,7 @@ fn measure_f32(
         .map(|i| ((i % axis_len) as f32) * 0.01 - 0.5)
         .collect();
     let mut output = vec![std::mem::MaybeUninit::<f32>::uninit(); input.len()];
-    let mut scratch = vec![0.0f32; scratch_len::<f32>(axis_len, threads)];
+    let mut scratch = vec![0.0f32; scratch_len::<f32>(axis_len, input.len(), threads)];
     bench(
         || {
             ExecContext::run_on(pool, threads, |exec| {
@@ -184,7 +184,7 @@ fn measure_f64(
         .map(|i| ((i % axis_len) as f64) * 0.01 - 0.5)
         .collect();
     let mut output = vec![std::mem::MaybeUninit::<f64>::uninit(); input.len()];
-    let mut scratch = vec![0.0f64; scratch_len::<f64>(axis_len, threads)];
+    let mut scratch = vec![0.0f64; scratch_len::<f64>(axis_len, input.len(), threads)];
     bench(
         || {
             ExecContext::run_on(pool, threads, |exec| {
