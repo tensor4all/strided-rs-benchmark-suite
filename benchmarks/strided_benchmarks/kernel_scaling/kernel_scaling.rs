@@ -21,7 +21,6 @@ use std::{
     env,
     hint::black_box,
     mem::MaybeUninit,
-    sync::atomic::{AtomicBool, Ordering},
     time::Instant,
 };
 use strided_kernel::{
@@ -30,7 +29,7 @@ use strided_kernel::{
     zip_map2_into, zip_map3_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
     ErasedDynamicSlicePlan, ErasedMapOp, ErasedPadPlan, ErasedRawStridedMut, ErasedRawStridedPtr,
     ErasedRawStridedRef, ErasedRawStridedUninitMut, ErasedReducePlan, ErasedReversePlan,
-    ErasedSlicePlan, ErasedZipOp, ExecContext, KernelDType, KernelStorageElement, PadPlan,
+    ErasedSlicePlan, ErasedZipOp, Exec, Pool, KernelDType, KernelStorageElement, PadPlan,
     RawStridedMut, RawStridedRef, ReduceOp, ReversePlan, SlicePlan, StridedView, StridedViewMut,
 };
 
@@ -40,7 +39,6 @@ use strided_kernel::{
 
 struct Cfg {
     threads: usize,
-    exec: ExecContext,
     timing: bool,
     runs: usize,
     warmup: usize,
@@ -48,7 +46,24 @@ struct Cfg {
     filter: Option<String>,
 }
 
+/// The one worker pool of the process, built once in `main` outside any timed
+/// region. Thread count is a property of this pool, not of the global rayon pool.
+static POOL: std::sync::OnceLock<Pool> = std::sync::OnceLock::new();
+
+/// Mint a placement token for `threads` workers (tokens are not `Clone`).
+fn exec_for(threads: usize) -> Exec<'static> {
+    if threads == 1 {
+        Exec::serial()
+    } else {
+        Exec::new(POOL.get().expect("pool built in main"), threads).unwrap()
+    }
+}
+
 impl Cfg {
+    fn exec(&self) -> Exec<'static> {
+        exec_for(self.threads)
+    }
+
     fn enabled(&self, case: &str) -> bool {
         self.filter.as_deref().map_or(true, |f| case.contains(f))
     }
@@ -98,7 +113,7 @@ fn env_usize(name: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-static SEEN_WORKER: [AtomicBool; 256] = [const { AtomicBool::new(false) }; 256];
+static SEEN_WORKER: std::sync::Mutex<Vec<std::thread::ThreadId>> = std::sync::Mutex::new(Vec::new());
 
 /// Number of OS threads in this process, when the platform exposes it.
 fn os_thread_count() -> Option<usize> {
@@ -120,37 +135,31 @@ fn os_thread_count() -> Option<usize> {
     lines.checked_sub(1)
 }
 
-/// Verify inside the pool that the effective thread budget is `cfg.threads`.
+/// Verify that the effective thread budget is `cfg.threads`.
 fn verify_threads(cfg: &Cfg) {
-    let pool = rayon::current_num_threads();
-    assert_eq!(pool, cfg.threads, "rayon pool size {pool} != requested {}", cfg.threads);
-    assert!(
-        rayon::current_thread_index().is_some(),
-        "benchmark body must run on a pool worker"
-    );
-    // Probe: a large typed map records which pool workers executed elements.
+    // Probe: a large typed map records which threads executed elements.
     let n = 1 << 22;
     let src = vec![1.0f64; n];
     let mut dst = vec![0.0f64; n];
     let dims = [n];
     let sv: StridedView<f64> = StridedView::new(&src, &dims, &[1], 0).unwrap();
     let mut dv = StridedViewMut::new(&mut dst, &dims, &[1], 0).unwrap();
-    for flag in &SEEN_WORKER {
-        flag.store(false, Ordering::Relaxed);
-    }
-    cfg.exec.run(|| {
-        map_into(&mut dv, &sv, |x| {
-            let index = rayon::current_thread_index().unwrap_or(255).min(255);
-            SEEN_WORKER[index].store(true, Ordering::Relaxed);
+    SEEN_WORKER.lock().unwrap().clear();
+    map_into(
+        &mut dv,
+        &sv,
+        |x| {
+            let id = std::thread::current().id();
+            let mut seen = SEEN_WORKER.lock().unwrap();
+            if !seen.contains(&id) {
+                seen.push(id);
+            }
             x
-        })
-        .unwrap()
-    });
-    let observed = SEEN_WORKER
-        .iter()
-        .filter(|f| f.load(Ordering::Relaxed))
-        .count();
-    assert!(!SEEN_WORKER[255].load(Ordering::Relaxed), "work ran outside the pool");
+        },
+        cfg.exec(),
+    )
+    .unwrap();
+    let observed = SEEN_WORKER.lock().unwrap().len();
     assert!(
         observed <= cfg.threads,
         "probe observed {observed} workers > requested {}",
@@ -158,9 +167,8 @@ fn verify_threads(cfg: &Cfg) {
     );
     let os = os_thread_count();
     eprintln!(
-        "# threads: requested={} rayon_pool={pool} exec_ctx={:?} probe_workers={observed} os_threads={}",
+        "# threads: requested={} probe_workers={observed} os_threads={}",
         cfg.threads,
-        cfg.exec,
         os.map_or("unknown".to_string(), |v| v.to_string())
     );
     if let Some(os) = os {
@@ -209,15 +217,7 @@ fn par_ranges(threads: usize, n: usize, align: usize, f: impl Fn(usize, usize) +
         return;
     }
     let per = n.div_ceil(threads).div_ceil(align) * align;
-    rayon::scope(|s| {
-        let f = &f;
-        let mut start = 0;
-        while start < n {
-            let end = (start + per).min(n);
-            s.spawn(move |_| f(start, end));
-            start = end;
-        }
-    });
+    exec_for(threads).for_ranges(n, per.try_into().unwrap(), |r| f(r.start, r.end));
 }
 
 /// Same as `par_ranges`, returning per-chunk results in chunk order.
@@ -232,16 +232,12 @@ fn par_map_ranges<R: Send + Default + Clone>(
     }
     let per = n.div_ceil(threads).div_ceil(align) * align;
     let chunks = n.div_ceil(per);
-    let mut out = vec![R::default(); chunks];
-    rayon::scope(|s| {
-        let f = &f;
-        for (k, slot) in out.iter_mut().enumerate() {
-            let start = k * per;
-            let end = (start + per).min(n);
-            s.spawn(move |_| *slot = f(start, end));
-        }
+    let out = std::sync::Mutex::new(vec![R::default(); chunks]);
+    exec_for(threads).for_ranges(n, per.try_into().unwrap(), |r| {
+        let v = f(r.start, r.end);
+        out.lock().unwrap()[r.start / per] = v;
     });
-    out
+    out.into_inner().unwrap()
 }
 
 /// Parallel memcpy of `len` elements.
@@ -464,8 +460,7 @@ fn bench_binary<T: Elem>(
         let bv: StridedView<T> = StridedView::new(&b, &s.dims, &s.col_strides, 0).unwrap();
         let mut dv = StridedViewMut::new(&mut out, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "typed", || {
-            cfg.exec
-                .run(|| zip_map2_into(&mut dv, black_box(&av), black_box(&bv), f).unwrap());
+            { zip_map2_into(&mut dv, black_box(&av), black_box(&bv), f, cfg.exec()).unwrap() };
             black_box(&mut dv);
         });
     }
@@ -480,7 +475,7 @@ fn bench_binary<T: Elem>(
         let (ap, bp) = (ErasedRawStridedPtr::from_ref(&ar), ErasedRawStridedPtr::from_ref(&br));
         let mut dest = ErasedRawStridedMut::from_slice_mut(&mut out, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "erased", || {
-            erased_zip_into(T::DTYPE, op, &cfg.exec, &mut dest, black_box(&ap), black_box(&bp)).unwrap();
+            erased_zip_into(T::DTYPE, op, &mut dest, black_box(&ap), black_box(&bp), cfg.exec()).unwrap();
             black_box(&mut dest);
         });
     }
@@ -497,7 +492,7 @@ fn bench_binary<T: Elem>(
         let mut dest =
             ErasedRawStridedUninitMut::from_uninit_slice(&mut out_u, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "erased_uninit", || {
-            erased_zip_into_uninit(T::DTYPE, op, &cfg.exec, &mut dest, black_box(&ap), black_box(&bp))
+            erased_zip_into_uninit(T::DTYPE, op, &mut dest, black_box(&ap), black_box(&bp), cfg.exec())
                 .unwrap();
             black_box(&mut dest);
         });
@@ -562,7 +557,7 @@ fn bench_unary<T: Elem, U: Elem>(
         let av: StridedView<T> = StridedView::new(&a, &s.dims, &s.lhs_strides, 0).unwrap();
         let mut dv = StridedViewMut::new(&mut out, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "typed", || {
-            cfg.exec.run(|| map_into(&mut dv, black_box(&av), f).unwrap());
+            { map_into(&mut dv, black_box(&av), f, cfg.exec()).unwrap() };
             black_box(&mut dv);
         });
     }
@@ -575,7 +570,7 @@ fn bench_unary<T: Elem, U: Elem>(
         let ap = ErasedRawStridedPtr::from_ref(&ar);
         let mut dest = ErasedRawStridedMut::from_slice_mut(&mut out, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "erased", || {
-            erased_map_into(T::DTYPE, op, &cfg.exec, &mut dest, black_box(&ap)).unwrap();
+            erased_map_into(T::DTYPE, op, &mut dest, black_box(&ap), cfg.exec()).unwrap();
             black_box(&mut dest);
         });
     }
@@ -590,7 +585,7 @@ fn bench_unary<T: Elem, U: Elem>(
         let mut dest =
             ErasedRawStridedUninitMut::from_uninit_slice(&mut out_u, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "erased_uninit", || {
-            erased_map_into_uninit(T::DTYPE, op, &cfg.exec, &mut dest, black_box(&ap)).unwrap();
+            erased_map_into_uninit(T::DTYPE, op, &mut dest, black_box(&ap), cfg.exec()).unwrap();
             black_box(&mut dest);
         });
     }
@@ -691,8 +686,7 @@ fn bench_tmul<T: Elem + std::ops::Mul<Output = T>>(
     {
         let mut dv = StridedViewMut::new(&mut out, dims, &col, 0).unwrap();
         cfg.measure(&case, "mul_into", || {
-            cfg.exec
-                .run(|| mul_into(&mut dv, black_box(&av), black_box(&bv)).unwrap());
+            { mul_into(&mut dv, black_box(&av), black_box(&bv), cfg.exec()).unwrap() };
             black_box(&mut dv);
         });
     }
@@ -703,9 +697,9 @@ fn bench_tmul<T: Elem + std::ops::Mul<Output = T>>(
     {
         let mut dv = StridedViewMut::new(&mut out, dims, &col, 0).unwrap();
         cfg.measure(&case, "zip_map2_into", || {
-            cfg.exec.run(|| {
-                zip_map2_into(&mut dv, black_box(&av), black_box(&bv), |x, y| x * y).unwrap()
-            });
+            { {
+                zip_map2_into(&mut dv, black_box(&av), black_box(&bv), |x, y| x * y, cfg.exec()).unwrap()
+            } };
             black_box(&mut dv);
         });
     }
@@ -773,11 +767,11 @@ fn bench_ternary<P: KernelStorageElement + Send + Sync + std::fmt::Debug>(
     gen_c: impl Fn(usize) -> f64,
     f: impl Fn(P, f64, f64) -> f64 + Sync + Send + Copy,
     erased: impl Fn(
-        &ExecContext,
         &mut ErasedRawStridedUninitMut<'_>,
         &ErasedRawStridedPtr<'_>,
         &ErasedRawStridedPtr<'_>,
         &ErasedRawStridedPtr<'_>,
+        Exec<'_>,
     ),
 ) {
     let case = format!("ter_{opname}_f64_{}", layout_label(layout));
@@ -845,9 +839,9 @@ fn bench_ternary<P: KernelStorageElement + Send + Sync + std::fmt::Debug>(
         let cv: StridedView<f64> = StridedView::new(&c, &s.dims, &s.col_strides, 0).unwrap();
         let mut dv = StridedViewMut::new(&mut out, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "typed", || {
-            cfg.exec.run(|| {
-                zip_map3_into(&mut dv, black_box(&pv), black_box(&bv), black_box(&cv), f).unwrap()
-            });
+            { {
+                zip_map3_into(&mut dv, black_box(&pv), black_box(&bv), black_box(&cv), f, cfg.exec()).unwrap()
+            } };
             black_box(&mut dv);
         });
     }
@@ -869,7 +863,7 @@ fn bench_ternary<P: KernelStorageElement + Send + Sync + std::fmt::Debug>(
         let mut dest =
             ErasedRawStridedUninitMut::from_uninit_slice(&mut out_u, &s.dims, &s.col_strides, 0).unwrap();
         cfg.measure(&case, "erased_uninit", || {
-            erased(&cfg.exec, &mut dest, black_box(&pp), black_box(&bp), black_box(&cp));
+            erased(&mut dest, black_box(&pp), black_box(&bp), black_box(&cp), cfg.exec());
             black_box(&mut dest);
         });
     }
@@ -887,8 +881,8 @@ fn ternary(cfg: &Cfg) {
             |i| f64::gen(i, 0),
             |i| f64::gen(i, 1),
             |p: bool, a: f64, b: f64| if p { a } else { b },
-            |ctx, dest, p, a, b| {
-                erased_select_into_uninit(KernelDType::F64, ctx, dest, p, a, b).unwrap()
+            |dest, p, a, b, ctx| {
+                erased_select_into_uninit(KernelDType::F64, dest, p, a, b, ctx).unwrap()
             },
         );
         bench_ternary(
@@ -899,8 +893,8 @@ fn ternary(cfg: &Cfg) {
             |_| -0.25,
             |_| 0.25,
             nan_clamp,
-            |ctx, dest, x, lo, hi| {
-                erased_clamp_into_uninit(KernelDType::F64, ctx, dest, x, lo, hi).unwrap()
+            |dest, x, lo, hi, ctx| {
+                erased_clamp_into_uninit(KernelDType::F64, dest, x, lo, hi, ctx).unwrap()
             },
         );
     }
@@ -1121,15 +1115,15 @@ fn bench_reduce(cfg: &Cfg, red: Red, axes: Axes, rows0: usize, cols0: usize) {
         let av: StridedView<f64> = StridedView::new(&a, &dims, &strides, 0).unwrap();
         let mut last = Vec::new();
         cfg.measure(&case, "typed", || {
-            let res = cfg.exec.run(|| match axes {
-                Axes::All => vec![reduce(black_box(&av), |x| x, move |p, q| red.apply(p, q), red.init()).unwrap()],
+            let res = { match axes {
+                Axes::All => vec![reduce(black_box(&av), |x| x, move |p, q| red.apply(p, q), red.init(), cfg.exec()).unwrap()],
                 Axes::Axis0 | Axes::Axis1 => {
                     let axis = if axes == Axes::Axis0 { 0 } else { 1 };
-                    let arr = reduce_axis(black_box(&av), axis, |x| x, move |p, q| red.apply(p, q), red.init())
+                    let arr = reduce_axis(black_box(&av), axis, |x| x, move |p, q| red.apply(p, q), red.init(), cfg.exec())
                         .unwrap();
                     arr.into_data()
                 }
-            });
+            } };
             last = black_box(res);
         });
         check("typed", &last);
@@ -1159,7 +1153,7 @@ fn bench_reduce(cfg: &Cfg, red: Red, axes: Axes, rows0: usize, cols0: usize) {
         let src = ErasedRawStridedRef::from_slice(&a, &dims, &strides, 0).unwrap();
         let mut dest = ErasedRawStridedMut::from_slice_mut(&mut out, &dest_dims, &dest_strides, 0).unwrap();
         cfg.measure(&case, "erased", || {
-            plan.execute(&cfg.exec, &mut dest, black_box(&src)).unwrap();
+            plan.execute(&mut dest, black_box(&src), cfg.exec()).unwrap();
             black_box(&mut dest);
         });
     }
@@ -1225,7 +1219,7 @@ fn struct_slice_step2(cfg: &Cfg) {
         let src = RawStridedRef::new(&a, &od, &os, 0).unwrap();
         let mut dst = RawStridedMut::new(&mut out, &dd, &ds, 0).unwrap();
         cfg.measure(case, "typed", || {
-            cfg.exec.run(|| plan.execute(&mut dst, black_box(&src)).unwrap());
+            { plan.execute(&mut dst, black_box(&src), cfg.exec()).unwrap() };
             black_box(&mut dst);
         });
     }
@@ -1236,7 +1230,7 @@ fn struct_slice_step2(cfg: &Cfg) {
         let src = ErasedRawStridedRef::from_slice(&a, &od, &os, 0).unwrap();
         let mut dst = ErasedRawStridedMut::from_slice_mut(&mut out, &dd, &ds, 0).unwrap();
         cfg.measure(case, "erased", || {
-            plan.execute(&cfg.exec, &mut dst, black_box(&src)).unwrap();
+            plan.execute(&mut dst, black_box(&src), cfg.exec()).unwrap();
             black_box(&mut dst);
         });
     }
@@ -1280,7 +1274,7 @@ fn struct_reverse(cfg: &Cfg, axis: usize) {
         let src = RawStridedRef::new(&a, &dims, &st, 0).unwrap();
         let mut dst = RawStridedMut::new(&mut out, &dims, &st, 0).unwrap();
         cfg.measure(case, "typed", || {
-            cfg.exec.run(|| plan.execute(&mut dst, black_box(&src)).unwrap());
+            { plan.execute(&mut dst, black_box(&src), cfg.exec()).unwrap() };
             black_box(&mut dst);
         });
     }
@@ -1291,7 +1285,7 @@ fn struct_reverse(cfg: &Cfg, axis: usize) {
         let src = ErasedRawStridedRef::from_slice(&a, &dims, &st, 0).unwrap();
         let mut dst = ErasedRawStridedMut::from_slice_mut(&mut out, &dims, &st, 0).unwrap();
         cfg.measure(case, "erased", || {
-            plan.execute(&cfg.exec, &mut dst, black_box(&src)).unwrap();
+            plan.execute(&mut dst, black_box(&src), cfg.exec()).unwrap();
             black_box(&mut dst);
         });
     }
@@ -1348,7 +1342,7 @@ fn struct_concat(cfg: &Cfg, axis: usize) {
         ];
         let mut dst = RawStridedMut::new(&mut out, &dd, &ds, 0).unwrap();
         cfg.measure(case, "typed", || {
-            cfg.exec.run(|| plan.execute(&mut dst, black_box(&inputs)).unwrap());
+            { plan.execute(&mut dst, black_box(&inputs), cfg.exec()).unwrap() };
             black_box(&mut dst);
         });
     }
@@ -1362,7 +1356,7 @@ fn struct_concat(cfg: &Cfg, axis: usize) {
         ];
         let mut dst = ErasedRawStridedMut::from_slice_mut(&mut out, &dd, &ds, 0).unwrap();
         cfg.measure(case, "erased", || {
-            plan.execute(&cfg.exec, &mut dst, black_box(&inputs)).unwrap();
+            plan.execute(&mut dst, black_box(&inputs), cfg.exec()).unwrap();
             black_box(&mut dst);
         });
     }
@@ -1415,7 +1409,7 @@ fn struct_dynamic_slice(cfg: &Cfg, rank: usize) {
         let st = RawStridedRef::new(&starts, &sd, &ss, 0).unwrap();
         let mut dst = RawStridedMut::new(&mut out, &wd, &ws, 0).unwrap();
         cfg.measure(case, "typed", || {
-            cfg.exec.run(|| plan.execute(&mut dst, black_box(&src), black_box(&st)).unwrap());
+            { plan.execute(&mut dst, black_box(&src), black_box(&st), cfg.exec()).unwrap() };
             black_box(&mut dst);
         });
     }
@@ -1429,7 +1423,7 @@ fn struct_dynamic_slice(cfg: &Cfg, rank: usize) {
         let st = ErasedRawStridedRef::from_slice(&starts, &sd, &ss, 0).unwrap();
         let mut dst = ErasedRawStridedMut::from_slice_mut(&mut out, &wd, &ws, 0).unwrap();
         cfg.measure(case, "erased", || {
-            plan.execute(&cfg.exec, &mut dst, black_box(&src), black_box(&st)).unwrap();
+            plan.execute(&mut dst, black_box(&src), black_box(&st), cfg.exec()).unwrap();
             black_box(&mut dst);
         });
     }
@@ -1481,7 +1475,7 @@ fn struct_pad(cfg: &Cfg) {
         let src = RawStridedRef::new(&a, &od, &os, 0).unwrap();
         let mut dst = RawStridedMut::new(&mut out, &dd, &ds, 0).unwrap();
         cfg.measure(case, "typed", || {
-            cfg.exec.run(|| plan.execute(&mut dst, black_box(&src), 0.0).unwrap());
+            { plan.execute(&mut dst, black_box(&src), 0.0, cfg.exec()).unwrap() };
             black_box(&mut dst);
         });
     }
@@ -1493,7 +1487,7 @@ fn struct_pad(cfg: &Cfg) {
         let mut dst = ErasedRawStridedMut::from_slice_mut(&mut out, &dd, &ds, 0).unwrap();
         let fill = 0.0f64.to_ne_bytes();
         cfg.measure(case, "erased", || {
-            plan.execute(&cfg.exec, &mut dst, black_box(&src), &fill).unwrap();
+            plan.execute(&mut dst, black_box(&src), &fill, cfg.exec()).unwrap();
             black_box(&mut dst);
         });
     }
@@ -1529,20 +1523,15 @@ fn main() {
     assert!(runs > 0);
     let filter = env::var("BENCH_FILTER").ok().filter(|f| !f.is_empty());
 
-    // The global pool is the only Rayon pool in the process and is bounded to
-    // `threads`, so no strided or baseline code can fan out wider than that.
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build_global()
-        .expect("failed to build the bounded global Rayon pool");
-    let exec = if threads == 1 {
-        ExecContext::serial()
-    } else {
-        ExecContext::max_threads(threads).unwrap()
-    };
+    // Thread count is a property of this pool only; nothing reads
+    // RAYON_NUM_THREADS or the global Rayon pool.
+    if threads > 1 {
+        POOL.set(Pool::builder().threads(threads).build().expect("pool"))
+            .ok()
+            .expect("pool set once");
+    }
     let cfg = Cfg {
         threads,
-        exec,
         timing,
         runs,
         warmup,
@@ -1554,9 +1543,11 @@ fn main() {
         option_env!("STRIDED_RS_REV").unwrap_or("unknown")
     );
 
-    // `rayon::scope` called from the main thread runs its body on a pool
-    // worker, so every kernel below executes inside the bounded pool.
-    rayon::scope(|_| {
+    // Placement of the calling thread. The default calls strided from outside
+    // the pool, as an engine does. `KERNEL_SCALING_IN_POOL=1` runs the whole
+    // body on a pool worker instead, so entries find themselves in the pool and
+    // never install (the old harness always ran this way).
+    let body = || {
         verify_threads(&cfg);
         if timing {
             println!("case,variant,threads,median_ns,samples");
@@ -1566,6 +1557,11 @@ fn main() {
         ternary(&cfg);
         reductions(&cfg);
         structural(&cfg);
-    });
+    };
+    if threads > 1 && env::var("KERNEL_SCALING_IN_POOL").as_deref() == Ok("1") {
+        Exec::new(POOL.get().unwrap(), threads).unwrap().external(|_| body());
+    } else {
+        body();
+    }
     eprintln!("# done");
 }

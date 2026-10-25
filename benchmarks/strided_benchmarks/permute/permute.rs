@@ -3,12 +3,29 @@ use std::fmt;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 #[allow(unused_imports)]
-#[cfg(feature = "parallel")]
-use strided_perm::copy_into_col_major_par;
-#[cfg(feature = "parallel")]
-use strided_perm::copy_into_par;
 use strided_perm::{copy_into, copy_into_col_major};
 use strided_view::{col_major_strides, StridedArray};
+use strided_kernel::{Exec, Pool};
+
+static POOL: std::sync::OnceLock<strided_kernel::Pool> = std::sync::OnceLock::new();
+
+fn bench_threads() -> usize {
+    std::env::var("BENCH_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&t| t >= 1)
+        .unwrap_or(1)
+}
+
+/// Mint a fresh placement token (tokens are not `Clone`); the pool is built once.
+fn exec() -> Exec<'static> {
+    let threads = bench_threads();
+    if threads == 1 {
+        return Exec::serial();
+    }
+    let pool = POOL.get_or_init(|| Pool::builder().threads(threads).build().expect("pool"));
+    Exec::new(pool, threads).expect("exec")
+}
 
 const PATTERN_PATH: &str = "benchmarks/strided_benchmarks/permute/patterns.json";
 
@@ -275,7 +292,7 @@ fn load_pattern_suite() -> Result<PatternSuite, Box<dyn std::error::Error>> {
 
 fn layout_strides(pattern: &PermutePattern, layout: &LayoutPattern) -> Vec<isize> {
     match layout {
-        LayoutPattern::ColMajor => col_major_strides(&pattern.shape),
+        LayoutPattern::ColMajor => col_major_strides(&pattern.shape).to_vec(),
         LayoutPattern::ExplicitStrides { strides } => strides.clone(),
     }
 }
@@ -310,7 +327,7 @@ fn prepare_pattern(pattern: &PermutePattern) -> PreparedPattern {
         src,
         out_shape,
         src_perm_strides,
-        dst_strides,
+        dst_strides: dst_strides.to_vec(),
         reference,
     }
 }
@@ -411,29 +428,29 @@ fn run_pattern(pattern: &PermutePattern) {
             }
             Participant::StridedPerm => {
                 let mut dst = StridedArray::<f64>::col_major(&prepared.out_shape);
-                copy_into(&mut dst.view_mut(), &src_perm).unwrap();
+                copy_into(&mut dst.view_mut(), &src_perm, Exec::serial()).unwrap();
                 verify_output("strided_perm::copy_into", dst.data(), &prepared.reference);
                 bench_n("strided_perm::copy_into", warmup, iters, bytes, || {
-                    copy_into(&mut dst.view_mut(), &src_perm).unwrap();
+                    copy_into(&mut dst.view_mut(), &src_perm, Exec::serial()).unwrap();
                     black_box(dst.data().as_ptr());
                 });
                 #[cfg(feature = "parallel")]
                 {
-                    copy_into_par(&mut dst.view_mut(), &src_perm).unwrap();
+                    copy_into(&mut dst.view_mut(), &src_perm, exec()).unwrap();
                     verify_output(
                         "strided_perm::copy_into_par",
                         dst.data(),
                         &prepared.reference,
                     );
                     bench_n("strided_perm::copy_into_par", warmup, iters, bytes, || {
-                        copy_into_par(&mut dst.view_mut(), &src_perm).unwrap();
+                        copy_into(&mut dst.view_mut(), &src_perm, exec()).unwrap();
                         black_box(dst.data().as_ptr());
                     });
                 }
             }
             Participant::StridedPermColMajor => {
                 let mut dst = StridedArray::<f64>::col_major(&prepared.out_shape);
-                copy_into_col_major(&mut dst.view_mut(), &src_perm).unwrap();
+                copy_into_col_major(&mut dst.view_mut(), &src_perm, Exec::serial()).unwrap();
                 verify_output(
                     "strided_perm::copy_into_col_major",
                     dst.data(),
@@ -445,13 +462,13 @@ fn run_pattern(pattern: &PermutePattern) {
                     iters,
                     bytes,
                     || {
-                        copy_into_col_major(&mut dst.view_mut(), &src_perm).unwrap();
+                        copy_into_col_major(&mut dst.view_mut(), &src_perm, Exec::serial()).unwrap();
                         black_box(dst.data().as_ptr());
                     },
                 );
                 #[cfg(feature = "parallel")]
                 {
-                    copy_into_col_major_par(&mut dst.view_mut(), &src_perm).unwrap();
+                    copy_into_col_major(&mut dst.view_mut(), &src_perm, exec()).unwrap();
                     verify_output(
                         "strided_perm::copy_into_col_major_par",
                         dst.data(),
@@ -463,7 +480,7 @@ fn run_pattern(pattern: &PermutePattern) {
                         iters,
                         bytes,
                         || {
-                            copy_into_col_major_par(&mut dst.view_mut(), &src_perm).unwrap();
+                            copy_into_col_major(&mut dst.view_mut(), &src_perm, exec()).unwrap();
                             black_box(dst.data().as_ptr());
                         },
                     );
@@ -538,7 +555,7 @@ fn run_hptt_participant(
 fn current_thread_count() -> usize {
     #[cfg(feature = "parallel")]
     {
-        rayon::current_num_threads()
+        bench_threads()
     }
     #[cfg(not(feature = "parallel"))]
     {
@@ -580,7 +597,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Element size: {} bytes", std::mem::size_of::<f64>());
     #[cfg(feature = "parallel")]
     {
-        let nthreads = rayon::current_num_threads();
+        let nthreads = bench_threads();
         println!("Parallel feature: enabled ({nthreads} threads)");
     }
     #[cfg(not(feature = "parallel"))]

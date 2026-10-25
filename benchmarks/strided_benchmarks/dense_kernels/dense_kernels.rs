@@ -2,7 +2,7 @@
 use std::{env, hint::black_box, mem::MaybeUninit, time::Instant};
 use strided_kernel::{
     axpby_accum, copy_into_uninit, embed_diagonal_into_uninit, map_into, mul_into_uninit,
-    triangular_mask_into_uninit, with_execution_policy, ExecutionPolicy, StridedView,
+    triangular_mask_into_uninit, Exec, StridedView,
     StridedViewMut,
 };
 
@@ -72,21 +72,21 @@ fn run(case: &str, runs: usize, timing: bool) {
         let mut dest = StridedViewMut::new(&mut output, &shape, &strides, 0).unwrap();
         let mut operation = || {
             match kind {
-                "copy" if baseline_map => map_into(&mut dest, &av, MaybeUninit::new).unwrap(),
-                "copy" => copy_into_uninit(&mut dest, &av).unwrap(),
-                "mul" => mul_into_uninit(&mut dest, &av, &bv).unwrap(),
-                "axpby" => axpby_accum(&mut y, &a, 0.25, 0.5).unwrap(),
+                "copy" if baseline_map => map_into(&mut dest, &av, MaybeUninit::new, Exec::serial()).unwrap(),
+                "copy" => copy_into_uninit(&mut dest, &av, Exec::serial()).unwrap(),
+                "mul" => mul_into_uninit(&mut dest, &av, &bv, Exec::serial()).unwrap(),
+                "axpby" => axpby_accum(&mut y, &a, 0.25, 0.5, Exec::serial()).unwrap(),
                 "tril" | "triu" => triangular_mask_into_uninit(
                     dest.data_mut(),
                     &a,
                     &shape,
                     -1,
                     kind == "triu",
-                    0.0,
+                    0.0, Exec::serial(),
                 )
                 .unwrap(),
                 "diag" => {
-                    embed_diagonal_into_uninit(dest.data_mut(), &a, &shape, 0, 1, 0.0).unwrap()
+                    embed_diagonal_into_uninit(dest.data_mut(), &a, &shape, 0, 1, 0.0, Exec::serial()).unwrap()
                 }
                 _ => unreachable!(),
             }
@@ -185,12 +185,10 @@ fn main() {
         "copy_rank6",
     ];
     assert!(filter.is_empty() || cases.contains(&filter.as_str()));
-    // No ambient/all-core provider: every call uses the serial execution path.
-    with_execution_policy(ExecutionPolicy::Sequential, || {
-        for case in cases {
-            if filter.is_empty() || filter == case {
-                run(case, runs, timing);
-            }
+    // Every call is given `Exec::serial()`: the serial execution path.
+    for case in cases {
+        if filter.is_empty() || filter == case {
+            run(case, runs, timing);
         }
-    });
+    }
 }

@@ -8,7 +8,6 @@ autobins = false
 parallel = [
     "strided-kernel/parallel",
     "strided-perm/parallel",
-    "dep:rayon",
 ]
 hptt = ["dep:hptt"]
 
@@ -17,13 +16,12 @@ inherits = "release"
 debug = true
 
 [dependencies]
-strided-kernel = { path = "../strided-rs/strided-kernel", default-features = false }
-strided-view = { path = "../strided-rs/strided-view" }
-strided-perm = { path = "../strided-rs/strided-perm" }
+strided-kernel = { path = "../strided-rs-exec/strided-kernel", default-features = false }
+strided-view = { path = "../strided-rs-exec/strided-view" }
+strided-perm = { path = "../strided-rs-exec/strided-perm" }
 num-complex = "0.4"
 num-traits = "0.2"
 hptt = { version = "0.4.1", optional = true }
-rayon = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

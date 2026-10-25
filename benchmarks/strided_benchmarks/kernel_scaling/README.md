@@ -71,19 +71,21 @@ The Julia script reads the same environment variables and `--time`.
 
 ### Thread enforcement
 
-The Rust binary builds the global Rayon pool with exactly N threads and runs
-every case inside `rayon::scope`, so all work, including the raw baselines,
-runs on that pool. Strided entries receive `ExecContext::serial()` at 1T and
-`ExecContext::max_threads(N)` otherwise; typed entries run inside
-`ExecContext::run`. Before any case the binary asserts that
-`rayon::current_num_threads() == N`, that the body runs on a pool worker, that a
-4M element typed `map_into` probe touched at most N distinct workers and none
-outside the pool, and that the process has at most N + 1 OS threads
+The Rust binary builds one `strided_kernel::Pool` with exactly N workers (none
+at 1T) and mints an `Exec` token per call: `Exec::serial()` at 1T and
+`Exec::new(&pool, N)` otherwise, passed by value as the last argument of every
+strided entry. The raw baselines fan out through `Exec::for_ranges` on the same
+pool. Nothing reads `RAYON_NUM_THREADS` or the global Rayon pool. Before any
+case the binary asserts that a 4M element typed `map_into` probe touched at
+most N distinct threads and that the process has at most N + 1 OS threads
 (`/proc/self/status` on Linux, `ps -M` on macOS). The header line on stderr
-prints all of these, for example:
+prints these. The caller is outside the pool by default (as an engine calls
+strided); `KERNEL_SCALING_IN_POOL=1` runs the body on a pool worker through
+`Exec::external`, which removes the per-call pool entry (about 8 us at 4T). For
+example:
 
 ```
-# threads: requested=4 rayon_pool=4 exec_ctx=ExecContext { kind: MaxThreads(4) } probe_workers=4 os_threads=5
+# threads: requested=4 probe_workers=4 os_threads=5
 ```
 
 The Julia script asserts `Threads.nthreads() == JULIA_NUM_THREADS` and sets
@@ -142,11 +144,11 @@ because only x carries NaN.
 | Variant | Rust entry | Julia API |
 |---|---|---|
 | `raw` | slice loops the compiler vectorizes (three input slices for select and clamp), split into contiguous chunks over the same Rayon pool; 64 x 64 tiles for transposed reads; 8 lane accumulators (with a NaN flag for max/min) for reductions; `copy_nonoverlapping` or per column loops for copies | |
-| `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` inside `ExecContext::run` | |
+| `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` with an `Exec` token | |
 | `erased` | `erased_zip_into`, `erased_map_into` (select and clamp have no initialized erased entry), `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
 | `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit`, `erased_select_into_uninit`, `erased_clamp_into_uninit` (elementwise and ternary only) | |
-| `mul_into` | `mul_into` inside `ExecContext::run` (`tmul_*` only) | |
-| `zip_map2_into` | `zip_map2_into` with the closure `x * y` inside `ExecContext::run` (`tmul_*` only) | |
+| `mul_into` | `mul_into` with an `Exec` token (`tmul_*` only) | |
+| `zip_map2_into` | `zip_map2_into` with the closure `x * y` with an `Exec` token (`tmul_*` only) | |
 | `julia_base` | | elementwise: `out .= f.(a, b)` into a preallocated array; ternary: `out .= ifelse.(p, a, b)`, `out .= clamp.(x, lo, hi)`; reductions: `sum(A)` etc. for all, `sum!(out, A)` etc. for dims |
 | `julia_strided` | | elementwise, ternary, and copies: `@strided so .= ...` on `StridedView`s; reductions: `sum(StridedView(A))` for all, `sum!(StridedView(out), StridedView(A))` for dims |
 | `julia_alloc` | | allocating Base call: `sum(A; dims=d)`, `A[1:2:end, :]`, `reverse(A; dims=d)`, `vcat` or `hcat`, `A[s+1:s+W, ...]` |

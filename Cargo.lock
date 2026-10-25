@@ -59,6 +59,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "elem-simd-math"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f47eb83592497208d6f4a5b064f6a9d5e5fd34ea4c4b6e8d3fa35be78ebc7f6b"
+dependencies = [
+ "fearless_simd",
+]
+
+[[package]]
+name = "fearless_simd"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3296eb97d869113eaf148a6bdf01884e90b3828ad7ae2340b0f93362fc158611"
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,34 +207,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "smallvec"
-version = "1.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-
-[[package]]
 name = "strided-basic"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
  "num-complex",
  "num-traits",
- "rayon",
- "smallvec",
+ "strided-exec",
  "strided-perm",
  "strided-view",
+ "tinyvec",
+]
+
+[[package]]
+name = "strided-exec"
+version = "0.7.0"
+dependencies = [
+ "rayon",
+ "thiserror",
 ]
 
 [[package]]
 name = "strided-fused"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
+ "elem-simd-math",
  "num-complex",
  "strided-basic",
 ]
 
 [[package]]
 name = "strided-kernel"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
  "num-complex",
  "strided-basic",
@@ -228,11 +246,12 @@ dependencies = [
 
 [[package]]
 name = "strided-perm"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
- "rayon",
+ "strided-exec",
  "strided-view",
  "thiserror",
+ "tinyvec",
 ]
 
 [[package]]
@@ -242,7 +261,6 @@ dependencies = [
  "hptt",
  "num-complex",
  "num-traits",
- "rayon",
  "serde",
  "serde_json",
  "strided-kernel",
@@ -252,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "strided-traits"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -260,12 +278,13 @@ dependencies = [
 
 [[package]]
 name = "strided-view"
-version = "0.4.4"
+version = "0.7.0"
 dependencies = [
  "num-complex",
  "num-traits",
  "strided-traits",
  "thiserror",
+ "tinyvec",
 ]
 
 [[package]]
@@ -298,6 +317,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "unicode-ident"
