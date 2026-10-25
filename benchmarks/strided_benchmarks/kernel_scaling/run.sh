@@ -6,7 +6,7 @@
 #   STRIDED_RS_DIR=/path/to/strided-rs run.sh rust THREADS
 #   run.sh julia THREADS
 #
-# The suite Cargo.toml points at ../strided-rs. To measure any other tree
+# The suite Cargo.toml uses the published strided crates. To measure any tree
 # without editing it, this script writes a standalone manifest under
 # target/kernel-scaling/<rev>/ whose only path dependency is
 # $STRIDED_RS_DIR/strided-kernel. Nothing outside target/ and data/results/

@@ -209,6 +209,8 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 [[package]]
 name = "strided-basic"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3d1f2ca1d4c9919223330785a9066d7a0c07452cb102ace0c7be0b672a7c14a"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -221,6 +223,8 @@ dependencies = [
 [[package]]
 name = "strided-exec"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e4911f8222f04faf402a27bdf316637704a83e46c36b69592858c2987362c8d"
 dependencies = [
  "rayon",
  "thiserror",
@@ -229,6 +233,8 @@ dependencies = [
 [[package]]
 name = "strided-fused"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97c0746dda66bcebb5d25f3e5499665f91ae9260793c0a3f805e753a3d749f"
 dependencies = [
  "elem-simd-math",
  "num-complex",
@@ -238,6 +244,8 @@ dependencies = [
 [[package]]
 name = "strided-kernel"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afe8505cc4be1daca659970b31bafef3340f4c9750547df247440de1e89dce06"
 dependencies = [
  "num-complex",
  "strided-basic",
@@ -247,6 +255,8 @@ dependencies = [
 [[package]]
 name = "strided-perm"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9803a008b44c5af32081c75eae353afc0c0ed3c56616edaa89845fe15cc157cf"
 dependencies = [
  "strided-exec",
  "strided-view",
@@ -271,6 +281,8 @@ dependencies = [
 [[package]]
 name = "strided-traits"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9a3e33b8cc945dc8270044c31ed641b86f01b9df6f2d450c093caa4bfefbda6"
 dependencies = [
  "num-complex",
  "num-traits",
@@ -279,6 +291,8 @@ dependencies = [
 [[package]]
 name = "strided-view"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af817b291f1ed116c05ca320aca0f854b29a68aabcddc6546061042c6b790c14"
 dependencies = [
  "num-complex",
  "num-traits",

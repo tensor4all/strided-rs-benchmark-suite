@@ -16,9 +16,9 @@ inherits = "release"
 debug = true
 
 [dependencies]
-strided-kernel = { path = "../strided-rs-exec/strided-kernel", default-features = false }
-strided-view = { path = "../strided-rs-exec/strided-view" }
-strided-perm = { path = "../strided-rs-exec/strided-perm" }
+strided-kernel = { version = "0.7.0", default-features = false }
+strided-view = "0.7.0"
+strided-perm = "0.7.0"
 num-complex = "0.4"
 num-traits = "0.2"
 hptt = { version = "0.4.1", optional = true }

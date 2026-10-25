@@ -23,8 +23,8 @@ of the issue into threshold checks:
 
 ## Building against a strided-rs tree
 
-The suite `Cargo.toml` points at the sibling `../strided-rs`. To measure any
-other checkout without editing tracked files, `run.sh` writes a standalone
+The suite `Cargo.toml` uses the published strided 0.7.0 crates. To measure any
+strided-rs checkout without editing tracked files, `run.sh` writes a standalone
 manifest under `target/kernel-scaling/<rev>/` (gitignored) whose only path
 dependency is `$STRIDED_RS_DIR/strided-kernel` with features `parallel,simd`.
 The strided-rs revision is taken from `git rev-parse` in that tree, suffixed
@@ -52,7 +52,7 @@ host. On Linux the runs are pinned with `taskset -c ${CPUS:-0-(T-1)}`. On macOS
 `OUTPUT_DIR` overrides the result directory. Julia uses `julia --project=.`
 at the suite root (Strided 2.6.1).
 
-With the sibling checkout the binary can also be built in tree:
+With a local strided-rs checkout patched in (see the top-level README), the binary can also be built in tree:
 `cargo build --release --features parallel --bin kernel_scaling`, then
 `target/release/kernel_scaling --threads 4 [--time]`.
 
@@ -183,9 +183,8 @@ The `tmul_*` rows ([strided-rs#285](https://github.com/tensor4all/strided-rs/pul
 cover the case where `mul_into` leaves a transposed input to the blocked
 kernel instead of the contiguous range fast path. They need strided-rs at or
 after `0a94a7a` (on `main` since `af851bf`; measured against `7baaad2` for the
-smoke check). The suite `Cargo.toml` resolves strided-rs through the sibling
-path, so there is no pin to bump; point `STRIDED_RS_DIR` at a checkout that
-contains `0a94a7a`. They also serve as the baseline for the
+smoke check). The suite `Cargo.toml` uses the published strided 0.7.0 crates, so there is no
+pin to bump here; point `STRIDED_RS_DIR` at a checkout that contains `0a94a7a`. They also serve as the baseline for the
 `compute_block_sizes` tile tuning follow-up. Timings are not recorded yet;
 record them, with the strided-rs hash, on a quiet host:
 `BENCH_FILTER=tmul_ run.sh rust 1`, `... rust 4`, and the Julia counterparts.
