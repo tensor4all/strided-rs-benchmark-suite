@@ -5,10 +5,14 @@ use std::time::{Duration, Instant};
 #[allow(unused_imports)]
 use strided_perm::{copy_into, copy_into_col_major};
 use strided_view::{col_major_strides, StridedArray};
-use strided_kernel::{Exec, Pool};
+use strided_kernel::Exec;
+#[cfg(feature = "parallel")]
+use strided_kernel::Pool;
 
+#[cfg(feature = "parallel")]
 static POOL: std::sync::OnceLock<strided_kernel::Pool> = std::sync::OnceLock::new();
 
+#[cfg(feature = "parallel")]
 fn bench_threads() -> usize {
     std::env::var("BENCH_THREADS")
         .ok()
@@ -18,6 +22,7 @@ fn bench_threads() -> usize {
 }
 
 /// Mint a fresh placement token (tokens are not `Clone`); the pool is built once.
+#[cfg(feature = "parallel")]
 fn exec() -> Exec<'static> {
     let threads = bench_threads();
     if threads == 1 {
