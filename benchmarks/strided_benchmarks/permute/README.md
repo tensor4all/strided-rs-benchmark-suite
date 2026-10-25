@@ -36,7 +36,7 @@ Rust, serial:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" \
-  RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  BENCH_THREADS=1 OMP_NUM_THREADS=1 \
   cargo run --release --bin permute
 ```
 
@@ -44,7 +44,7 @@ Rust, parallel `strided-perm`:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" \
-  RAYON_NUM_THREADS=4 OMP_NUM_THREADS=1 \
+  BENCH_THREADS=4 OMP_NUM_THREADS=1 \
   cargo run --release --features parallel --bin permute
 ```
 
@@ -52,7 +52,7 @@ Rust with HPTT rows:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" \
-  RAYON_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+  BENCH_THREADS=1 OMP_NUM_THREADS=1 \
   cargo run --release --features hptt --bin permute
 ```
 
@@ -60,7 +60,7 @@ Rust with parallel `strided-perm` and HPTT using the same Rayon thread count:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" \
-  RAYON_NUM_THREADS=4 OMP_NUM_THREADS=1 \
+  BENCH_THREADS=4 OMP_NUM_THREADS=1 \
   cargo run --release --features parallel,hptt --bin permute
 ```
 
@@ -103,7 +103,7 @@ Measured on macOS 26.5.1, 2026-07-02. Median milliseconds. macOS CPU pinning was
 
 #### 1 Thread
 
-`RAYON_NUM_THREADS=1`, `OMP_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`.
+`BENCH_THREADS=1`, `OMP_NUM_THREADS=1`, `JULIA_NUM_THREADS=1`.
 
 | Pattern | naive (Rust) | strided-rs | HPTT | Julia Base | Strided.jl |
 |---|---:|---:|---:|---:|---:|
@@ -123,7 +123,7 @@ Copy baseline (`24D 2^24` contiguous): `std::ptr::copy_nonoverlapping` 2.014 ms,
 
 #### 4 Threads
 
-`RAYON_NUM_THREADS=4`, `OMP_NUM_THREADS=1`, `JULIA_NUM_THREADS=4`.
+`BENCH_THREADS=4`, `OMP_NUM_THREADS=1`, `JULIA_NUM_THREADS=4`.
 
 | Pattern | naive (Rust) | strided-rs serial | strided-rs parallel | HPTT | Julia Base | Strided.jl |
 |---|---:|---:|---:|---:|---:|---:|

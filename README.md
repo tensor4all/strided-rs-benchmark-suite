@@ -20,8 +20,11 @@ repository's git history.
 
 ## Setup
 
-Requires a local clone of [strided-rs](https://github.com/tensor4all/strided-rs)
-at `../strided-rs`.
+The suite builds against the published strided 0.7.0 crates from crates.io
+(`strided-kernel`, `strided-view`, `strided-perm`); no sibling checkout is
+needed. To test against a local strided-rs checkout, add a temporary
+`[patch.crates-io]` section to `Cargo.toml` pointing those crates (and any
+other strided crate they pull in) at `path = "..."` entries in that checkout.
 
 ```bash
 cargo build --release                      # serial kernels

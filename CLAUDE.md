@@ -18,8 +18,9 @@ cargo run --release --bin permute
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
-`Cargo.toml` references the strided crates via local paths
-(`../strided-rs/`); clone strided-rs as a sibling directory.
+`Cargo.toml` depends on the published strided 0.7.0 crates from crates.io. No
+sibling checkout is required. To test against a local strided-rs checkout, use a
+temporary `[patch.crates-io]` section; do not commit it.
 
 ## Benchmark Execution Rules
 

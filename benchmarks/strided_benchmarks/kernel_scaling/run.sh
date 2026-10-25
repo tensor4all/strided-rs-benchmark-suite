@@ -6,7 +6,7 @@
 #   STRIDED_RS_DIR=/path/to/strided-rs run.sh rust THREADS
 #   run.sh julia THREADS
 #
-# The suite Cargo.toml points at ../strided-rs. To measure any other tree
+# The suite Cargo.toml uses the published strided crates. To measure any tree
 # without editing it, this script writes a standalone manifest under
 # target/kernel-scaling/<rev>/ whose only path dependency is
 # $STRIDED_RS_DIR/strided-kernel. Nothing outside target/ and data/results/
@@ -56,7 +56,6 @@ path = "$page/kernel_scaling.rs"
 
 [dependencies]
 strided-kernel = { path = "$strided_rs/strided-kernel", default-features = false, features = ["parallel", "simd"] }
-rayon = "1"
 num-complex = "0.4"
 
 [profile.release]
@@ -103,7 +102,7 @@ rust)
     mkdir -p "$out"
     csv="$out/rust_${threads}t.csv"
     echo "==> rust ${threads}T, strided-rs $rev, writing $csv" >&2
-    RAYON_NUM_THREADS="$threads" pinned "$threads" "$bin" --threads "$threads" --time | tee "$csv"
+    pinned "$threads" "$bin" --threads "$threads" --time | tee "$csv"
     ;;
 julia)
     threads=${2:?usage: run.sh julia THREADS}

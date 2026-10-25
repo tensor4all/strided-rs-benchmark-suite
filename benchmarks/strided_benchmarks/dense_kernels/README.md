@@ -6,8 +6,10 @@ multiply SIMD path and uninitialized permutation copies. Requires strided-rs
 `78d519013e8b44bd80f77eb01d31039f0be9aae6` or compatible descendants.
 The merged integration revision is `5bc5ab75a20277f0c8820cb288b23f6bb6dfbd91`
 (strided-rs PR259, on `umbrella/issue-burndown-2026-08`, not yet `main`).
-Check out that revision in the existing sibling `../strided-rs` repository;
-the historical result tables retain the exact revisions actually measured.
+The suite itself uses the published strided 0.7.0 crates, so measuring that
+revision needs a local checkout wired in with a temporary `[patch.crates-io]`
+section (see the top-level README). The historical result tables retain the
+exact revisions actually measured.
 
 ```sh
 cargo build -j 16 --locked --release --no-default-features \
@@ -27,7 +29,8 @@ thread count is independent of affinity and Cargo build jobs. No BLAS is used.
 
 ## Instruction collection
 
-Build each revision in a clean sibling worktree using the committed Cargo.lock,
+Build each revision in a clean worktree of the strided-rs checkout (patched in as
+described in the top-level README) using the committed Cargo.lock,
 and save separately named binaries. Run these sequentially, never during a build:
 
 ```sh

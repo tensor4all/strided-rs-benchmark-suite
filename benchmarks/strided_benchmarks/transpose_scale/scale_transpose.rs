@@ -12,6 +12,34 @@ use std::time::Instant;
 use strided_kernel::{copy_transpose_scale_into, map_into};
 use strided_view::{ElementOpApply, StridedArray};
 
+// Placement: the pool is built once on first use (outside any timed region
+// because every benchmark touches `exec()` during setup/validation) and the
+// worker count comes from `BENCH_THREADS` (default 1, which is serial).
+static POOL: std::sync::OnceLock<strided_kernel::Pool> = std::sync::OnceLock::new();
+
+fn bench_threads() -> usize {
+    std::env::var("BENCH_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&t| t >= 1)
+        .unwrap_or(1)
+}
+
+/// Mint a fresh placement token (tokens are not `Clone`).
+fn exec() -> strided_kernel::Exec<'static> {
+    let threads = bench_threads();
+    if threads == 1 {
+        return strided_kernel::Exec::serial();
+    }
+    let pool = POOL.get_or_init(|| {
+        strided_kernel::Pool::builder()
+            .threads(threads)
+            .build()
+            .expect("pool")
+    });
+    strided_kernel::Exec::new(pool, threads).expect("exec")
+}
+
 trait BenchScalar:
     Copy
     + Clone
@@ -164,7 +192,7 @@ fn run_case<T: BenchScalar>(n: usize, scale: T, scale_name: &str, warmup: usize,
 
     let (strided_med, strided_iqr) = bench(
         || {
-            copy_transpose_scale_into(&mut b.view_mut(), &a_view, scale).unwrap();
+            copy_transpose_scale_into(&mut b.view_mut(), &a_view, scale, exec()).unwrap();
             black_box(dst_ptr);
         },
         warmup,
@@ -173,7 +201,7 @@ fn run_case<T: BenchScalar>(n: usize, scale: T, scale_name: &str, warmup: usize,
 
     let (map_med, map_iqr) = bench(
         || {
-            map_into(&mut b.view_mut(), &a_t, |x| scale * x).unwrap();
+            map_into(&mut b.view_mut(), &a_t, |x| scale * x, exec()).unwrap();
             black_box(dst_ptr);
         },
         warmup,
@@ -196,7 +224,7 @@ fn run_case<T: BenchScalar>(n: usize, scale: T, scale_name: &str, warmup: usize,
     if scale == T::one() {
         let (copy_med, copy_iqr) = bench(
             || {
-                strided_perm::copy_into(&mut b.view_mut(), &a_perm).unwrap();
+                strided_perm::copy_into(&mut b.view_mut(), &a_perm, exec()).unwrap();
                 black_box(dst_ptr);
             },
             warmup,

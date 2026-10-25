@@ -9,6 +9,34 @@ use strided_kernel::{
     fused_elementwise_into, map_into, zip_map2_into, FusedInst, FusedOp, FusedPlan, StridedArray,
 };
 
+// Placement: the pool is built once on first use (outside any timed region
+// because every benchmark touches `exec()` during setup/validation) and the
+// worker count comes from `BENCH_THREADS` (default 1, which is serial).
+static POOL: std::sync::OnceLock<strided_kernel::Pool> = std::sync::OnceLock::new();
+
+fn bench_threads() -> usize {
+    std::env::var("BENCH_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&t| t >= 1)
+        .unwrap_or(1)
+}
+
+/// Mint a fresh placement token (tokens are not `Clone`).
+fn exec() -> strided_kernel::Exec<'static> {
+    let threads = bench_threads();
+    if threads == 1 {
+        return strided_kernel::Exec::serial();
+    }
+    let pool = POOL.get_or_init(|| {
+        strided_kernel::Pool::builder()
+            .threads(threads)
+            .build()
+            .expect("pool")
+    });
+    strided_kernel::Exec::new(pool, threads).expect("exec")
+}
+
 #[derive(Clone, Copy)]
 struct BenchStats {
     median_ms: f64,
@@ -106,88 +134,88 @@ fn check_close(case: &str, expected: &[f64], actual: &[f64]) -> Result<(), Strin
 fn add_mul_plan() -> FusedPlan {
     FusedPlan {
         input_count: 2,
-        outputs: vec![3],
-        ops: vec![
+        outputs: [3].into_iter().collect(),
+        ops: [
             FusedInst {
                 op: FusedOp::Add,
-                inputs: vec![0, 1],
+                inputs: [0, 1].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Multiply,
-                inputs: vec![2, 0],
+                inputs: [2, 0].into_iter().collect(),
             },
-        ],
+        ].into_iter().collect(),
     }
 }
 
 fn exp_mul_add_plan() -> FusedPlan {
     FusedPlan {
         input_count: 3,
-        outputs: vec![5],
-        ops: vec![
+        outputs: [5].into_iter().collect(),
+        ops: [
             FusedInst {
                 op: FusedOp::Multiply,
-                inputs: vec![0, 1],
+                inputs: [0, 1].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Add,
-                inputs: vec![3, 2],
+                inputs: [3, 2].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Exp,
-                inputs: vec![4],
+                inputs: [4].into_iter().collect(),
             },
-        ],
+        ].into_iter().collect(),
     }
 }
 
 fn long_chain_plan() -> FusedPlan {
     FusedPlan {
         input_count: 4,
-        outputs: vec![8],
-        ops: vec![
+        outputs: [8].into_iter().collect(),
+        ops: [
             FusedInst {
                 op: FusedOp::Divide,
-                inputs: vec![0, 1],
+                inputs: [0, 1].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Maximum,
-                inputs: vec![4, 2],
+                inputs: [4, 2].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Minimum,
-                inputs: vec![5, 3],
+                inputs: [5, 3].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Sqrt,
-                inputs: vec![6],
+                inputs: [6].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Rsqrt,
-                inputs: vec![7],
+                inputs: [7].into_iter().collect(),
             },
-        ],
+        ].into_iter().collect(),
     }
 }
 
 fn interpreter_fallback_plan() -> FusedPlan {
     FusedPlan {
         input_count: 2,
-        outputs: vec![4],
-        ops: vec![
+        outputs: [4].into_iter().collect(),
+        ops: [
             FusedInst {
                 op: FusedOp::Add,
-                inputs: vec![0, 1],
+                inputs: [0, 1].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Negate,
-                inputs: vec![2],
+                inputs: [2].into_iter().collect(),
             },
             FusedInst {
                 op: FusedOp::Exp,
-                inputs: vec![3],
+                inputs: [3].into_iter().collect(),
             },
-        ],
+        ].into_iter().collect(),
     }
 }
 
@@ -199,16 +227,16 @@ fn validate_add_mul(n: usize) -> Result<(), String> {
     let mut expected = StridedArray::<f64>::col_major(&shape);
     let mut actual = StridedArray::<f64>::col_major(&shape);
 
-    zip_map2_into(&mut tmp.view_mut(), &a.view(), &b.view(), |x, y| x + y)
+    zip_map2_into(&mut tmp.view_mut(), &a.view(), &b.view(), |x, y| x + y, exec())
         .map_err(|err| err.to_string())?;
     zip_map2_into(&mut expected.view_mut(), &tmp.view(), &a.view(), |x, y| {
         x * y
-    })
+    }, exec())
     .map_err(|err| err.to_string())?;
     fused_elementwise_into(
         &mut [actual.view_mut()],
         &[a.view(), b.view()],
-        &add_mul_plan(),
+        &add_mul_plan(), exec(),
     )
     .map_err(|err| err.to_string())?;
 
@@ -228,21 +256,21 @@ fn validate_exp_mul_add(n: usize) -> Result<(), String> {
     let mut expected = StridedArray::<f64>::col_major(&shape);
     let mut actual = StridedArray::<f64>::col_major(&shape);
 
-    zip_map2_into(&mut tmp_mul.view_mut(), &a.view(), &b.view(), |x, y| x * y)
+    zip_map2_into(&mut tmp_mul.view_mut(), &a.view(), &b.view(), |x, y| x * y, exec())
         .map_err(|err| err.to_string())?;
     zip_map2_into(
         &mut tmp_add.view_mut(),
         &tmp_mul.view(),
         &c_broadcast,
-        |x, y| x + y,
+        |x, y| x + y, exec(),
     )
     .map_err(|err| err.to_string())?;
-    map_into(&mut expected.view_mut(), &tmp_add.view(), |x| x.exp())
+    map_into(&mut expected.view_mut(), &tmp_add.view(), |x| x.exp(), exec())
         .map_err(|err| err.to_string())?;
     fused_elementwise_into(
         &mut [actual.view_mut()],
         &[a.view(), b.view(), c_broadcast],
-        &exp_mul_add_plan(),
+        &exp_mul_add_plan(), exec(),
     )
     .map_err(|err| err.to_string())?;
 
@@ -262,32 +290,32 @@ fn validate_long_chain(n: usize) -> Result<(), String> {
     let mut expected = StridedArray::<f64>::col_major(&shape);
     let mut actual = StridedArray::<f64>::col_major(&shape);
 
-    zip_map2_into(&mut tmp_div.view_mut(), &a.view(), &b.view(), |x, y| x / y)
+    zip_map2_into(&mut tmp_div.view_mut(), &a.view(), &b.view(), |x, y| x / y, exec())
         .map_err(|err| err.to_string())?;
     zip_map2_into(
         &mut tmp_max.view_mut(),
         &tmp_div.view(),
         &lo.view(),
-        |x, y| x.max(y),
+        |x, y| x.max(y), exec(),
     )
     .map_err(|err| err.to_string())?;
     zip_map2_into(
         &mut tmp_min.view_mut(),
         &tmp_max.view(),
         &hi.view(),
-        |x, y| x.min(y),
+        |x, y| x.min(y), exec(),
     )
     .map_err(|err| err.to_string())?;
-    map_into(&mut tmp_sqrt.view_mut(), &tmp_min.view(), |x| x.sqrt())
+    map_into(&mut tmp_sqrt.view_mut(), &tmp_min.view(), |x| x.sqrt(), exec())
         .map_err(|err| err.to_string())?;
     map_into(&mut expected.view_mut(), &tmp_sqrt.view(), |x| {
         1.0 / x.sqrt()
-    })
+    }, exec())
     .map_err(|err| err.to_string())?;
     fused_elementwise_into(
         &mut [actual.view_mut()],
         &[a.view(), b.view(), lo.view(), hi.view()],
-        &long_chain_plan(),
+        &long_chain_plan(), exec(),
     )
     .map_err(|err| err.to_string())?;
 
@@ -303,15 +331,15 @@ fn validate_interpreter_fallback(n: usize) -> Result<(), String> {
     let mut expected = StridedArray::<f64>::col_major(&shape);
     let mut actual = StridedArray::<f64>::col_major(&shape);
 
-    zip_map2_into(&mut tmp_add.view_mut(), &a.view(), &b.view(), |x, y| x + y)
+    zip_map2_into(&mut tmp_add.view_mut(), &a.view(), &b.view(), |x, y| x + y, exec())
         .map_err(|err| err.to_string())?;
-    map_into(&mut tmp_neg.view_mut(), &tmp_add.view(), |x| -x).map_err(|err| err.to_string())?;
-    map_into(&mut expected.view_mut(), &tmp_neg.view(), |x| x.exp())
+    map_into(&mut tmp_neg.view_mut(), &tmp_add.view(), |x| -x, exec()).map_err(|err| err.to_string())?;
+    map_into(&mut expected.view_mut(), &tmp_neg.view(), |x| x.exp(), exec())
         .map_err(|err| err.to_string())?;
     fused_elementwise_into(
         &mut [actual.view_mut()],
         &[a.view(), b.view()],
-        &interpreter_fallback_plan(),
+        &interpreter_fallback_plan(), exec(),
     )
     .map_err(|err| err.to_string())?;
 
@@ -335,8 +363,8 @@ fn bench_add_mul(n: usize, warmup: usize, nruns: usize) -> CaseResult {
 
     let per_op = bench(
         || {
-            zip_map2_into(&mut tmp.view_mut(), &a.view(), &b.view(), |x, y| x + y).unwrap();
-            zip_map2_into(&mut out.view_mut(), &tmp.view(), &a.view(), |x, y| x * y).unwrap();
+            zip_map2_into(&mut tmp.view_mut(), &a.view(), &b.view(), |x, y| x + y, exec()).unwrap();
+            zip_map2_into(&mut out.view_mut(), &tmp.view(), &a.view(), |x, y| x * y, exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,
@@ -344,7 +372,7 @@ fn bench_add_mul(n: usize, warmup: usize, nruns: usize) -> CaseResult {
     );
     let fused = bench(
         || {
-            fused_elementwise_into(&mut [out.view_mut()], &[a.view(), b.view()], &plan).unwrap();
+            fused_elementwise_into(&mut [out.view_mut()], &[a.view(), b.view()], &plan, exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,
@@ -374,15 +402,15 @@ fn bench_exp_mul_add(n: usize, warmup: usize, nruns: usize) -> CaseResult {
 
     let per_op = bench(
         || {
-            zip_map2_into(&mut tmp_mul.view_mut(), &a.view(), &b.view(), |x, y| x * y).unwrap();
+            zip_map2_into(&mut tmp_mul.view_mut(), &a.view(), &b.view(), |x, y| x * y, exec()).unwrap();
             zip_map2_into(
                 &mut tmp_add.view_mut(),
                 &tmp_mul.view(),
                 &c_broadcast,
-                |x, y| x + y,
+                |x, y| x + y, exec(),
             )
             .unwrap();
-            map_into(&mut out.view_mut(), &tmp_add.view(), |x| x.exp()).unwrap();
+            map_into(&mut out.view_mut(), &tmp_add.view(), |x| x.exp(), exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,
@@ -393,7 +421,7 @@ fn bench_exp_mul_add(n: usize, warmup: usize, nruns: usize) -> CaseResult {
             fused_elementwise_into(
                 &mut [out.view_mut()],
                 &[a.view(), b.view(), c_broadcast.clone()],
-                &plan,
+                &plan, exec(),
             )
             .unwrap();
             black_box(out.data().as_ptr());
@@ -426,23 +454,23 @@ fn bench_long_chain(n: usize, warmup: usize, nruns: usize) -> CaseResult {
 
     let per_op = bench(
         || {
-            zip_map2_into(&mut tmp_div.view_mut(), &a.view(), &b.view(), |x, y| x / y).unwrap();
+            zip_map2_into(&mut tmp_div.view_mut(), &a.view(), &b.view(), |x, y| x / y, exec()).unwrap();
             zip_map2_into(
                 &mut tmp_max.view_mut(),
                 &tmp_div.view(),
                 &lo.view(),
-                |x, y| x.max(y),
+                |x, y| x.max(y), exec(),
             )
             .unwrap();
             zip_map2_into(
                 &mut tmp_min.view_mut(),
                 &tmp_max.view(),
                 &hi.view(),
-                |x, y| x.min(y),
+                |x, y| x.min(y), exec(),
             )
             .unwrap();
-            map_into(&mut tmp_sqrt.view_mut(), &tmp_min.view(), |x| x.sqrt()).unwrap();
-            map_into(&mut out.view_mut(), &tmp_sqrt.view(), |x| 1.0 / x.sqrt()).unwrap();
+            map_into(&mut tmp_sqrt.view_mut(), &tmp_min.view(), |x| x.sqrt(), exec()).unwrap();
+            map_into(&mut out.view_mut(), &tmp_sqrt.view(), |x| 1.0 / x.sqrt(), exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,
@@ -453,7 +481,7 @@ fn bench_long_chain(n: usize, warmup: usize, nruns: usize) -> CaseResult {
             fused_elementwise_into(
                 &mut [out.view_mut()],
                 &[a.view(), b.view(), lo.view(), hi.view()],
-                &plan,
+                &plan, exec(),
             )
             .unwrap();
             black_box(out.data().as_ptr());
@@ -482,9 +510,9 @@ fn bench_interpreter_fallback(n: usize, warmup: usize, nruns: usize) -> CaseResu
 
     let per_op = bench(
         || {
-            zip_map2_into(&mut tmp_add.view_mut(), &a.view(), &b.view(), |x, y| x + y).unwrap();
-            map_into(&mut tmp_neg.view_mut(), &tmp_add.view(), |x| -x).unwrap();
-            map_into(&mut out.view_mut(), &tmp_neg.view(), |x| x.exp()).unwrap();
+            zip_map2_into(&mut tmp_add.view_mut(), &a.view(), &b.view(), |x, y| x + y, exec()).unwrap();
+            map_into(&mut tmp_neg.view_mut(), &tmp_add.view(), |x| -x, exec()).unwrap();
+            map_into(&mut out.view_mut(), &tmp_neg.view(), |x| x.exp(), exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,
@@ -492,7 +520,7 @@ fn bench_interpreter_fallback(n: usize, warmup: usize, nruns: usize) -> CaseResu
     );
     let fused = bench(
         || {
-            fused_elementwise_into(&mut [out.view_mut()], &[a.view(), b.view()], &plan).unwrap();
+            fused_elementwise_into(&mut [out.view_mut()], &[a.view(), b.view()], &plan, exec()).unwrap();
             black_box(out.data().as_ptr());
         },
         warmup,

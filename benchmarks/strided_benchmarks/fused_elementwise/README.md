@@ -22,7 +22,9 @@ Run thread-count variants sequentially. Do not run benchmark processes in
 parallel.
 
 ```bash
-STRIDED_RS_HASH=$(cd ../strided-rs && git rev-parse HEAD)
+# Hash of the strided-rs checkout the numbers were measured against. The suite
+# no longer checks one out, so set this by hand.
+STRIDED_RS_HASH=<strided-rs git hash>
 
 RUSTFLAGS="-C target-cpu=native" \
   STRIDED_RS_HASH="$STRIDED_RS_HASH" \
