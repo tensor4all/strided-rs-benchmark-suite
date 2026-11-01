@@ -19,6 +19,7 @@ debug = true
 strided-kernel = { version = "0.7.0", default-features = false }
 strided-view = "0.7.0"
 strided-perm = "0.7.0"
+strided-nn = "0.7.0"
 num-complex = "0.4"
 num-traits = "0.2"
 hptt = { version = "0.4.1", optional = true }
@@ -40,6 +41,11 @@ path = "benchmarks/strided_benchmarks/fused_elementwise/fused_elementwise.rs"
 [[bin]]
 name = "dense_kernels"
 path = "benchmarks/strided_benchmarks/dense_kernels/dense_kernels.rs"
+
+[[bin]]
+name = "softmax"
+path = "benchmarks/strided_benchmarks/softmax/softmax.rs"
+required-features = ["parallel"]
 
 [[bin]]
 name = "kernel_scaling"

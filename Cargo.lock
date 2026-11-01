@@ -253,6 +253,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "strided-nn"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab9e12a5d52c810ebb9f62db811252bf328ebb8fa3e0329cf6ea7675e84e468"
+dependencies = [
+ "elem-simd-math",
+ "strided-basic",
+ "thiserror",
+]
+
+[[package]]
 name = "strided-perm"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,6 +285,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strided-kernel",
+ "strided-nn",
  "strided-perm",
  "strided-view",
 ]
