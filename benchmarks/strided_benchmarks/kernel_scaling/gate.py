@@ -7,7 +7,9 @@ prints one table row per (case, threads) and flags:
   (a) scaling:  a strided variant at the high thread count is not at least
                 SCALING x faster than at 1 thread, for cases whose 1 thread
                 median is at least MIN_SCALING_NS ("tensor sized");
-  (b) erased:   an erased variant is more than ERASED x slower than typed;
+  (b) erased:   a non-typed strided variant is more than ERASED x slower than typed;
+  (b2) typed:   with --typed-erased-check, typed is more than TYPED_ERASED x
+                slower than the exact erased variant;
   (c) raw:      a strided variant is more than RAW x slower than the raw
                 baseline at the same thread count;
   (d) julia:    a strided variant is more than JULIA x slower than the
@@ -61,10 +63,12 @@ def main():
     ap.add_argument("--min-scaling-ns", type=float, default=1e6,
                     help="(a) only cases whose 1T median is at least this many ns (default 1e6)")
     ap.add_argument("--erased", type=float, default=1.25, help="(b) max erased/typed ratio (default 1.25)")
+    ap.add_argument("--typed-erased-check", action="store_true", help="enable (b2) typed/erased check")
+    ap.add_argument("--typed-erased", type=float, default=1.25, help="(b2) max typed/erased ratio (default 1.25)")
     ap.add_argument("--raw", type=float, default=1.5, help="(c) max strided/raw ratio (default 1.5)")
     ap.add_argument("--julia", type=float, default=2.0, help="(d) max strided/fastest Julia ratio (default 2.0)")
     ap.add_argument("--min-ns", type=float, default=0.0,
-                    help="skip (b), (c), (d) when the slower side is below this many ns (default 0)")
+                    help="skip (b), (b2), (c), (d) when the numerator is below this many ns (default 0)")
     ap.add_argument("--filter", default="", help="only cases containing this substring")
     args = ap.parse_args()
 
@@ -88,6 +92,10 @@ def main():
     for (case, threads), v in sorted(by.items()):
         julia = {k: ns for k, ns in v.items() if k.startswith("julia")}
         fastest_julia = min(julia.items(), key=lambda kv: kv[1]) if julia else None
+        if args.typed_erased_check and "typed" in v and "erased" in v and v["typed"] >= args.min_ns:
+            r = v["typed"] / v["erased"] if v["erased"] else float("inf")
+            if r > args.typed_erased:
+                flag("b2", case, threads, "typed", f"typed/erased = {r:.3f} > {args.typed_erased}")
         for s in STRIDED:
             if s not in v:
                 continue
@@ -133,8 +141,9 @@ def main():
             print("  ".join("-" * w for w in widths))
 
     print()
+    b2 = f"; (b2) typed/erased <= {args.typed_erased}" if args.typed_erased_check else ""
     print(f"thresholds: (a) scaling >= {args.scaling}x at {args.threads}T when 1T >= {fmt(args.min_scaling_ns)}; "
-          f"(b) erased/typed <= {args.erased}; (c) strided/raw <= {args.raw}; (d) strided/julia <= {args.julia}")
+          f"(b) erased/typed <= {args.erased}{b2}; (c) strided/raw <= {args.raw}; (d) strided/julia <= {args.julia}")
     if flags:
         print(f"{len(flags)} flag(s):")
         for kind, case, threads, _, msg in sorted(flags):
