@@ -164,17 +164,19 @@ the preallocated copies listed above.
 python3 benchmarks/strided_benchmarks/kernel_scaling/gate.py DIR_OR_CSVS... [--report-only]
 ```
 
-Strided variants are `typed`, `erased`, and `erased_uninit`. Flags:
+Strided variants are `typed`, `erased`, `erased_uninit`, `mul_into`, and `zip_map2_into`. Flags:
 
 | Flag | Condition | Default |
 |---|---|---|
 | (a) | a strided variant is not at least 1.3x faster at 4T than at 1T, for cases whose 1T median is at least 1 ms (tensor sized); the raw scaling of the same case is printed for context | `--scaling 1.3 --threads 4 --min-scaling-ns 1e6` |
-| (b) | an erased variant is more than 1.25x slower than typed at the same thread count | `--erased 1.25` |
+| (b) | a non-typed strided variant is more than 1.25x slower than typed at the same thread count | `--erased 1.25` |
+| (b2) | typed is more than 1.25x slower than the exact `erased` variant at the same thread count | opt-in: `--typed-erased-check --typed-erased 1.25` |
 | (c) | a strided variant is more than 1.5x slower than `raw` at the same thread count | `--raw 1.5` |
 | (d) | a strided variant is more than 2x slower than the fastest Julia variant at the same thread count | `--julia 2.0` |
 
-`--min-ns` skips (b), (c) and (d) when the strided side is below that many ns
-(default 0). `--filter` restricts to matching cases. The script exits 1 when
+`--min-ns` skips (b), (b2), (c) and (d) when the numerator is below that many ns
+(default 0). (b2) applies only when both `typed` and `erased` are present;
+`--typed-erased` alone does not enable it. `--filter` restricts to matching cases. The script exits 1 when
 anything is flagged unless `--report-only` is given.
 
 ## Transposed multiply rows
