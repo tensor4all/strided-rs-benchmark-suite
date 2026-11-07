@@ -1,4 +1,4 @@
-# Julia counterpart of kernel_scaling.rs (strided-rs#269).
+# Julia counterpart of kernel_scaling.rs (strided-rs#269, replay rows strided-rs#365).
 #
 # Same case names and shapes as the Rust binary. Every variant writes into a
 # preallocated output except `julia_alloc`, which times the allocating Base
@@ -451,5 +451,40 @@ copy_concat(1)
 copy_dynslice_rank1()
 copy_dynslice_rank2()
 copy_pad()
+
+# ---------------------------------------------------------------------------
+# Replay of caller-fused layouts (strided-rs#365): same layouts as the Rust
+# `replay_*` cases, written into a compact column-major output.
+# ---------------------------------------------------------------------------
+
+function replay_crop_r2()
+    enabled("replay_crop_r2") || return
+    R, C = d(4096), d(4096)
+    lo = R ÷ 32
+    A = matrix(R, C)
+    v = view(A, lo+1:R-lo, :)
+    copy_variants("replay_crop_r2", v, nothing, collect(v))
+end
+
+function replay_reverse_r2()
+    enabled("replay_reverse_r2") || return
+    R, C = d(4096), d(4096)
+    A = matrix(R, C)
+    v = view(A, R:-1:1, :)
+    copy_variants("replay_reverse_r2", v, nothing, collect(v))
+end
+
+function replay_perm(rank, side)
+    case = "replay_perm_r$rank"
+    enabled(case) || return
+    A = reshape([gen_copy(i) for i in 0:side^rank-1], ntuple(_ -> side, rank))
+    v = PermutedDimsArray(A, ntuple(k -> rank + 1 - k, rank))
+    copy_variants(case, v, nothing, collect(v))
+end
+
+replay_crop_r2()
+replay_reverse_r2()
+replay_perm(4, max(2, d(64)))
+replay_perm(8, SHRINK == 1 ? 8 : 4)
 
 println(stderr, "# done")

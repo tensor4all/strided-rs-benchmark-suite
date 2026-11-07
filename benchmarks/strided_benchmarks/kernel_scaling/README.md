@@ -126,6 +126,10 @@ unless stated.
 | Structural | `copy_dynslice_rank1` | length 33554432 operand, 16777216 window, start 5592405 |
 | Structural | `copy_dynslice_rank2` | 4608 x 4608 operand, 4096 x 4096 window, starts `[100, 200]` (i64) |
 | Structural | `copy_pad` | 4000 x 4000 padded by 48 on every side to 4096 x 4096, fill 0 |
+| Replay | `replay_crop_r2` | rows 128..3968 of every column of a stored 4096 x 4096 block, into a compact 3840 x 4096 destination |
+| Replay | `replay_reverse_r2` | 4096 x 4096, source axis 0 reversed (strides `[-1, 4096]`) |
+| Replay | `replay_perm_r4` | 64^4, destination column major, source axes reversed (strides `[262144, 4096, 64, 1]`) |
+| Replay | `replay_perm_r8` | 8^8, destination column major, source axes reversed |
 
 Binary max and min are NaN propagating, matching `ErasedZipOp::Maximum` and
 `Minimum`; the typed and raw closures use the same function.
@@ -148,6 +152,8 @@ because only x carries NaN.
 | `erased` | `erased_zip_into`, `erased_map_into` (select and clamp have no initialized erased entry), `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
 | `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit`, `erased_select_into_uninit`, `erased_clamp_into_uninit` (elementwise and ternary only) | |
 | `mul_into` | `mul_into` with an `Exec` token (`tmul_*` only) | |
+| `replay` | `replay_copy_raw` with an `Exec` token (`replay_*` only); `typed` on these rows is `CopyPlan::execute`, compiled before timing, on the same layout | |
+| `replay_uninit` | `replay_copy_raw_uninit` into an uninitialized destination (`replay_*` only) | |
 | `zip_map2_into` | `zip_map2_into` with the closure `x * y` with an `Exec` token (`tmul_*` only) | |
 | `julia_base` | | elementwise: `out .= f.(a, b)` into a preallocated array; ternary: `out .= ifelse.(p, a, b)`, `out .= clamp.(x, lo, hi)`; reductions: `sum(A)` etc. for all, `sum!(out, A)` etc. for dims |
 | `julia_strided` | | elementwise, ternary, and copies: `@strided so .= ...` on `StridedView`s; reductions: `sum(StridedView(A))` for all, `sum!(StridedView(out), StridedView(A))` for dims |
@@ -164,7 +170,7 @@ the preallocated copies listed above.
 python3 benchmarks/strided_benchmarks/kernel_scaling/gate.py DIR_OR_CSVS... [--report-only]
 ```
 
-Strided variants are `typed`, `erased`, `erased_uninit`, `mul_into`, and `zip_map2_into`. Flags:
+Strided variants are `typed`, `erased`, `erased_uninit`, `mul_into`, `zip_map2_into`, `replay`, and `replay_uninit`. Flags:
 
 | Flag | Condition | Default |
 |---|---|---|
@@ -192,6 +198,47 @@ record them, with the strided-rs hash, on a quiet host:
 `BENCH_FILTER=tmul_ run.sh rust 1`, `... rust 4`, and the Julia counterparts.
 The gate applies (a) and (d) to `mul_into` and `zip_map2_into`; these rows have
 no `raw` or `erased` variants.
+
+## Replay rows
+
+The `replay_*` rows ([strided-rs#365](https://github.com/tensor4all/strided-rs/issues/365))
+measure the plan-free replay entries `replay_copy_raw` and
+`replay_copy_raw_uninit` against a compiled `CopyPlan` (`typed`) on the same
+layout, a raw baseline and Julia. The layouts are given already fused and
+sorted by destination stride, as those entries expect: the replay performs the
+same traversal as the plan and only skips plan compilation. The raw baseline
+splits the outermost destination axis over the pool and walks the other axes
+with an incremental odometer around a slice loop (contiguous or reversed
+source) or a strided read. Julia has no plan-free strided copy, so its rows are
+`copyto!` and `@strided .=` on the corresponding view or `PermutedDimsArray`.
+The rows need a strided-rs checkout that contains #365.
+
+Results (2026-11-07): one exclusive 96-CPU x86_64 Linux node, runs pinned with
+`taskset` to CPUs `0` and `0-3`, `RUSTFLAGS=-C target-cpu=native`, rustc
+1.96.0, `BENCH_RUNS=11`, Julia 1.12.5 with Strided from the suite manifest.
+strided-rs `9549eeb` (the #365 branch; measured on the same source before its rebase onto `97e6e41`, which changes only versions). Each cell is the median over three full runs of the
+per-run medians (ms):
+
+| case | T | typed | replay | replay_uninit | raw | Julia `copyto!` | Julia `@strided` |
+|---|---|---|---|---|---|---|---|
+| `replay_crop_r2` | 1 | 19.31 | 19.33 | 19.09 | 23.32 | 22.94 | 21.00 |
+| `replay_crop_r2` | 4 | 5.30 | 5.30 | 5.27 | 7.02 | 22.44 | 5.58 |
+| `replay_reverse_r2` | 1 | 20.36 | 20.44 | 20.23 | 20.28 | 224.24 | 23.48 |
+| `replay_reverse_r2` | 4 | 5.76 | 5.69 | 5.59 | 5.80 | 223.22 | 6.46 |
+| `replay_perm_r4` | 1 | 188.94 | 189.11 | 189.57 | 186.78 | 264.02 | 90.74 |
+| `replay_perm_r4` | 4 | 50.54 | 50.63 | 50.66 | 51.48 | 268.65 | 23.96 |
+| `replay_perm_r8` | 1 | 192.84 | 192.91 | 193.86 | 196.79 | 531.42 | 195.18 |
+| `replay_perm_r8` | 4 | 62.87 | 62.91 | 63.04 | 68.10 | 508.20 | 48.93 |
+
+The replay entries match the compiled plan within 3% on every row, as
+expected from the shared traversal. The gate flags only (d) on
+`replay_perm_r4`, at 2.02x to 2.13x of Julia `@strided` in each run. It flags
+`typed` equally, and the raw baseline is as slow: the full axis reversal
+makes the unit-stride destination axis the largest source stride, and the
+copy traversal has no cache blocking for that case, while Strided.jl blocks
+it. That gap belongs to the shared copy kernel, not to the replay entries.
+On an unpinned macOS host the same rows varied by up to 7x between runs at 4T,
+so they are not recorded here.
 
 ## Not covered
 
