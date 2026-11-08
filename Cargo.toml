@@ -51,3 +51,9 @@ required-features = ["parallel"]
 name = "kernel_scaling"
 path = "benchmarks/strided_benchmarks/kernel_scaling/kernel_scaling.rs"
 required-features = ["parallel"]
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
