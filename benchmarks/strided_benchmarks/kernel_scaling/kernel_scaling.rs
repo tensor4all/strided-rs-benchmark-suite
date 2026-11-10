@@ -2,7 +2,9 @@
 //!
 //! Elementwise and ternary select/clamp (erased, typed, raw), reductions (erased plan, typed reduce,
 //! raw multi-accumulator) and structural copy plans (erased plan, typed plan,
-//! raw memcpy/loop) at an enforced thread count. Setup, allocation, descriptor
+//! raw memcpy/loop) at an enforced thread count. The `replay_*` cases
+//! (strided-rs#365) compare the plan-free `replay_copy_raw` entries with a
+//! compiled `CopyPlan` on the same caller-fused layout. Setup, allocation, descriptor
 //! construction and correctness checks are outside timed regions. The typed
 //! `reduce_axis` API allocates its result, so that allocation is inside its
 //! timed region by construction of the API.
@@ -32,6 +34,7 @@ use strided_kernel::{
     ErasedSlicePlan, ErasedZipOp, Exec, Pool, KernelDType, KernelStorageElement, PadPlan,
     RawStridedMut, RawStridedRef, ReduceOp, ReversePlan, SlicePlan, StridedView, StridedViewMut,
 };
+use strided_kernel::{replay_copy_raw, replay_copy_raw_uninit, CopyPlan};
 
 // ---------------------------------------------------------------------------
 // Configuration, thread enforcement and timing
@@ -1494,6 +1497,182 @@ fn struct_pad(cfg: &Cfg) {
     check_2d(cfg, case, "erased", &out, dr, expected);
 }
 
+// ---------------------------------------------------------------------------
+// Plan-free replay of caller-fused layouts (strided-rs#365)
+// ---------------------------------------------------------------------------
+
+/// One copy layout: destination column major over `dims`, source strides and
+/// offset given per destination axis (already fused and sorted by destination
+/// stride, as the replay entries expect).
+struct ReplayCase {
+    name: &'static str,
+    dims: Vec<usize>,
+    src_strides: Vec<isize>,
+    src_offset: isize,
+    src_len: usize,
+}
+
+/// Highest rank among the `replay_*` cases; the raw cursor is a stack array.
+const MAX_REPLAY_RANK: usize = 8;
+
+fn col_major(dims: &[usize]) -> Vec<isize> {
+    let mut acc = 1isize;
+    dims.iter()
+        .map(|&d| {
+            let s = acc;
+            acc *= d as isize;
+            s
+        })
+        .collect()
+}
+
+/// Raw baseline: split the outermost destination axis across the pool; inside
+/// a chunk an odometer advances both offsets incrementally, and the inner run
+/// is a slice loop (contiguous source) or a strided read.
+fn raw_replay(threads: usize, c: &ReplayCase, dst_strides: &[isize], dst: *mut f64, src: *const f64) {
+    let rank = c.dims.len();
+    assert!(rank <= MAX_REPLAY_RANK);
+    let outer = c.dims[rank - 1];
+    let inner = c.dims[0];
+    let (pd, ps) = (SendPtr(dst), SendConst(src));
+    par_ranges(threads, outer, 1, |o0, o1| unsafe {
+        let mut idx = [0usize; MAX_REPLAY_RANK];
+        idx[rank - 1] = o0;
+        let mut d = o0 as isize * dst_strides[rank - 1];
+        let mut s = c.src_offset + o0 as isize * c.src_strides[rank - 1];
+        let runs = (o1 - o0) * c.dims[1..rank - 1].iter().product::<usize>();
+        for _ in 0..runs {
+            let dr = std::slice::from_raw_parts_mut(pd.get().offset(d), inner);
+            match c.src_strides[0] {
+                1 => dr.copy_from_slice(std::slice::from_raw_parts(ps.get().offset(s), inner)),
+                -1 => {
+                    let sr = std::slice::from_raw_parts(ps.get().offset(s - (inner as isize - 1)), inner);
+                    for (x, &y) in dr.iter_mut().zip(sr.iter().rev()) {
+                        *x = y;
+                    }
+                }
+                st => {
+                    for (k, x) in dr.iter_mut().enumerate() {
+                        *x = *ps.get().offset(s + k as isize * st);
+                    }
+                }
+            }
+            let mut a = 1;
+            while a < rank {
+                idx[a] += 1;
+                d += dst_strides[a];
+                s += c.src_strides[a];
+                if idx[a] < c.dims[a] || a == rank - 1 {
+                    break;
+                }
+                d -= c.dims[a] as isize * dst_strides[a];
+                s -= c.dims[a] as isize * c.src_strides[a];
+                idx[a] = 0;
+                a += 1;
+            }
+        }
+    });
+}
+
+fn replay_cases(cfg: &Cfg) -> Vec<ReplayCase> {
+    let (r, c) = (cfg.d(4096), cfg.d(4096));
+    let lo = r / 32;
+    let rows = r - 2 * lo;
+    let perm = |rank: usize, side: usize| {
+        let dims = vec![side; rank];
+        let mut src = col_major(&dims);
+        src.reverse();
+        let len = dims.iter().product();
+        (dims, src, len)
+    };
+    let (d4, s4, l4) = perm(4, cfg.d(64).max(2));
+    let (d8, s8, l8) = perm(8, if cfg.shrink == 1 { 8 } else { 4 });
+    vec![
+        // Interior rows of every column of a stored r x c block.
+        ReplayCase {
+            name: "replay_crop_r2",
+            dims: vec![rows, c],
+            src_strides: vec![1, r as isize],
+            src_offset: lo as isize,
+            src_len: r * c,
+        },
+        ReplayCase {
+            name: "replay_reverse_r2",
+            dims: vec![r, c],
+            src_strides: vec![-1, r as isize],
+            src_offset: r as isize - 1,
+            src_len: r * c,
+        },
+        ReplayCase { name: "replay_perm_r4", dims: d4, src_strides: s4, src_offset: 0, src_len: l4 },
+        ReplayCase { name: "replay_perm_r8", dims: d8, src_strides: s8, src_offset: 0, src_len: l8 },
+    ]
+}
+
+fn replay(cfg: &Cfg) {
+    for c in replay_cases(cfg) {
+        if !cfg.enabled(c.name) {
+            continue;
+        }
+        let a: Vec<f64> = (0..c.src_len).map(gen_copy).collect();
+        let n: usize = c.dims.iter().product();
+        let dst_strides = col_major(&c.dims);
+        let expected: Vec<f64> = {
+            let mut e = vec![f64::NAN; n];
+            for (k, slot) in e.iter_mut().enumerate() {
+                let mut rest = k;
+                let mut off = c.src_offset;
+                for (&d, &s) in c.dims.iter().zip(&c.src_strides) {
+                    off += (rest % d) as isize * s;
+                    rest /= d;
+                }
+                *slot = a[off as usize];
+            }
+            e
+        };
+        let check = |variant: &str, out: &[f64]| {
+            check_all(c.name, variant, out, |x, y| x == y, |k| expected[k]);
+            cfg.ok(c.name, variant);
+        };
+        let mut out = vec![f64::NAN; n];
+        {
+            let (pd, pa) = (out.as_mut_ptr(), a.as_ptr());
+            cfg.measure(c.name, "raw", || {
+                raw_replay(cfg.threads, &c, &dst_strides, black_box(pd), black_box(pa));
+            });
+        }
+        check("raw", &out);
+        let src = RawStridedRef::new(&a, &c.dims, &c.src_strides, c.src_offset).unwrap();
+        out.fill(f64::NAN);
+        {
+            let plan = CopyPlan::compile(&c.dims, &dst_strides, &c.src_strides).unwrap();
+            let mut dst = RawStridedMut::new(&mut out, &c.dims, &dst_strides, 0).unwrap();
+            cfg.measure(c.name, "typed", || {
+                plan.execute(&mut dst, black_box(&src), cfg.exec()).unwrap();
+                black_box(&mut dst);
+            });
+        }
+        check("typed", &out);
+        out.fill(f64::NAN);
+        {
+            let mut dst = RawStridedMut::new(&mut out, &c.dims, &dst_strides, 0).unwrap();
+            cfg.measure(c.name, "replay", || {
+                replay_copy_raw(&mut dst, black_box(&src), cfg.exec()).unwrap();
+                black_box(&mut dst);
+            });
+        }
+        check("replay", &out);
+        let mut uninit = vec![MaybeUninit::<f64>::uninit(); n];
+        {
+            let mut dst = RawStridedMut::new(&mut uninit, &c.dims, &dst_strides, 0).unwrap();
+            cfg.measure(c.name, "replay_uninit", || {
+                replay_copy_raw_uninit(&mut dst, black_box(&src), cfg.exec()).unwrap();
+                black_box(&mut dst);
+            });
+        }
+        check("replay_uninit", assume_init(&uninit));
+    }
+}
+
 fn structural(cfg: &Cfg) {
     struct_slice_step2(cfg);
     struct_reverse(cfg, 0);
@@ -1557,6 +1736,7 @@ fn main() {
         ternary(&cfg);
         reductions(&cfg);
         structural(&cfg);
+                replay(&cfg);
     };
     if threads > 1 && env::var("KERNEL_SCALING_IN_POOL").as_deref() == Ok("1") {
         Exec::new(POOL.get().unwrap(), threads).unwrap().external(|_| body());

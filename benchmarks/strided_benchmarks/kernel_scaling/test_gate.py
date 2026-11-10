@@ -68,5 +68,15 @@ class TypedErasedGateTest(unittest.TestCase):
         self.assertIn("bb2", result.stdout)
 
 
+    def test_replay_variants_are_compared_with_typed_and_raw(self):
+        rows = [("r", "typed", 4, 100, 11), ("r", "raw", 4, 80, 11),
+                ("r", "replay", 4, 130, 11), ("r", "replay_uninit", 4, 110, 11)]
+        result = self.run_gate(rows)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("(b) r 4T: replay/typed", result.stdout)
+        self.assertNotIn("(b) r 4T: replay_uninit/typed", result.stdout)
+        self.assertIn("(c) r 4T: replay", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
