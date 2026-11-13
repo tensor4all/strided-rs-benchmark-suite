@@ -1,5 +1,10 @@
 @CLAUDE.md
 
+## Shared rules
+
+Shared rules are maintained in https://github.com/tensor4all/tensor4all-agent-rules/.
+Read the latest `rules/index.md` there and follow the applicable rules.
+
 ## Critical Rules
 
 - **NEVER run benchmarks in parallel.** Benchmarks must be run sequentially (1-thread first, then 4-thread, etc.). Running them concurrently causes interference between benchmark processes, producing unreliable and misleading results.
