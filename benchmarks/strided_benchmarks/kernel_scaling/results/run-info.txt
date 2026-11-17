@@ -1,0 +1,17 @@
+date: 2026-11-17
+strided_rs_rev: 3cbc000b1cd8a9a07a503c7c639a0a4cfb025ae7
+strided_rs_version: strided 0.12.0 (the #365 merge on main)
+host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S, 32 CPUs, two L3 domains (0-7,16-23 and 8-15,24-31)
+kernel: Linux 7.0.0-42-generic x86_64
+rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+rustflags: -C target-cpu=native
+bench_runs: 31
+bench_warmup: 3
+filter: red_
+cpus_1t: 2
+cpus_4t: 1,2,5,6
+julia: Julia is not installed on this host (`command -v julia` is empty)
+pinning: taskset per run.sh; the observing agent process was pinned to CPUs 8-15, outside the measured domain
+co_tenant: no isolated CPUs; other users' builds and jobs moved between CPUs during the session
+repetitions: Two runs per binary and thread count in the counterbalanced order before, after, after, before, because the second process of a pair measured faster on this host; each cell is the median over the two runs of its binary, each run a median of 31 samples, and results/raw/ keeps the eight per-run CSVs
+discarded: seven earlier paired attempts (11 or 31 samples) were taken down when co-tenant builds (cc1/rustc/colmat at 200-400% of a core each) ran on the pinned CPUs; in those attempts the unchanged raw path moved 1.1x-5.4x between the two binaries. They are not committed

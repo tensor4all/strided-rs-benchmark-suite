@@ -100,8 +100,11 @@ through `black_box`. After each variant is timed its output is compared on
 every element with a plain sequential reference (exact for elementwise f64,
 copies and max/min, relative 1e-12 for complex elementwise, relative 1e-9 for
 sum and prod). Check mode runs the same comparisons with a single call.
-Exception: typed `reduce_axis` returns a freshly allocated `StridedArray`, so
-that allocation is inside its timed region. It is the only typed per axis API.
+The typed axis rows write into a destination allocated in `prepare`
+(`reduce_axis_into`), so their timed region holds no output allocation. The
+allocating `reduce_axis` entry returns a freshly allocated `StridedArray` and is
+measured separately as the `allocating` variant, whose allocation is inside its
+timed region by construction of the API.
 
 CSV columns: `case,variant,threads,median_ns,samples`.
 
@@ -148,7 +151,8 @@ because only x carries NaN.
 | Variant | Rust entry | Julia API |
 |---|---|---|
 | `raw` | slice loops the compiler vectorizes (three input slices for select and clamp), split into contiguous chunks over the same Rayon pool; 64 x 64 tiles for transposed reads; 8 lane accumulators (with a NaN flag for max/min) for reductions; `copy_nonoverlapping` or per column loops for copies | |
-| `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis`, `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` with an `Exec` token | |
+| `typed` | `zip_map2_into`, `map_into`, `zip_map3_into` (select, clamp), `reduce`, `reduce_axis_into` (axis rows, destination allocated in `prepare`), `SlicePlan`, `ReversePlan`, `ConcatenatePlan`, `DynamicSlicePlan`, `PadPlan` with an `Exec` token | |
+| `allocating` | `reduce_axis`, which allocates its output `StridedArray` inside the timed region (reduction axis rows only; the allocating counterpart of `julia_alloc`). Reported but not gated: it is not comparable to the preallocated rows | |
 | `erased` | `erased_zip_into`, `erased_map_into` (select and clamp have no initialized erased entry), `ErasedReducePlan::compile` or `compile_axes`, `Erased{Slice,Reverse,Concatenate,DynamicSlice,Pad}Plan::execute` | |
 | `erased_uninit` | `erased_zip_into_uninit`, `erased_map_into_uninit`, `erased_select_into_uninit`, `erased_clamp_into_uninit` (elementwise and ternary only) | |
 | `mul_into` | `mul_into` with an `Exec` token (`tmul_*` only) | |
@@ -170,7 +174,11 @@ the preallocated copies listed above.
 python3 benchmarks/strided_benchmarks/kernel_scaling/gate.py DIR_OR_CSVS... [--report-only]
 ```
 
-Strided variants are `typed`, `erased`, `erased_uninit`, `mul_into`, `zip_map2_into`, `replay`, and `replay_uninit`. Flags:
+Strided variants are `typed`, `erased`, `erased_uninit`, `mul_into`, `zip_map2_into`,
+`replay`, and `replay_uninit`. `allocating` is printed as a column but is
+deliberately absent from that list: it performs the output allocation the others
+do not, so a ratio against `typed` or `raw` would measure the harness's semantics
+rather than a kernel. Flags:
 
 | Flag | Condition | Default |
 |---|---|---|
@@ -246,8 +254,8 @@ so they are not recorded here.
   contiguous layout plus conj on the transposed layout. Complex sub is
   omitted, and erased max and min do not accept complex inputs.
 - Uninitialized destination entries of the structural plans are not measured.
-- Typed reductions have no preallocated per axis entry, so `typed` axis rows
-  include the output allocation.
+- The typed axis rows use `reduce_axis_into`, whose destination is one
+  column-major rank-1 buffer; a strided destination layout is not measured.
 - Only f64 and Complex64 are exercised; f32 and integer dtypes are not.
 - Select and clamp are f64 only, and clamp bounds are full arrays rather
   than stride 0 broadcasts. The results below predate the ternary cases;
@@ -332,3 +340,73 @@ The gate flags only `ter_select_f64_trans` at 4T in the after run (erased
 gave erased/typed 1.22, 1.09, and 1.11, a rerun of all `ter_` cases 1.05, and
 80 samples 1.00 (15.27 ms against 15.30 ms). Transposed cases at 4T vary
 between runs on this unpinned host, as noted above for `ew_add_f64_trans`.
+
+<!-- BEGIN generated: typed-reduce-alloc -->
+### Typed reduction output allocation (2026-11-17)
+
+Raw data: `results/{before,after}-{1t,4t}.csv`, provenance in `results/run-info.txt`; regenerate this section with `python3 benchmarks/strided_benchmarks/kernel_scaling/summarize_reduce.py`.
+
+- strided-rs `3cbc000b1cd8a9a07a503c7c639a0a4cfb025ae7`, rustc `rustc 1.100.0 (0ef1bc386 2026-11-09)`, `-C target-cpu=native`, `BENCH_RUNS=31`, `BENCH_WARMUP=3`.
+- AMD RYZEN AI MAX+ 395 w/ Radeon 8060S, 32 CPUs, two L3 domains (0-7,16-23 and 8-15,24-31); Linux 7.0.0-42-generic x86_64; no isolated CPUs; one measurement at a time.
+- Runs pinned with `taskset` to CPUs 2 (1T) and 1,2,5,6 (4T) inside one L3 domain; the observing process ran on CPUs 8-15.
+- Julia is not installed on this host (`command -v julia` is empty), so the table has Rust rows only and the gate's (d) check cannot fire for it.
+- Two runs per binary and thread count in the counterbalanced order before, after, after, before, because the second process of a pair measured faster on this host; each cell is the median over the two runs of its binary, each run a median of 31 samples, and results/raw/ keeps the eight per-run CSVs.
+
+`typed` is the primary row: `reduce_axis_into` with a destination allocated in `prepare`, so the timed region holds no output allocation. `allocating` is the same binary's `reduce_axis` row, whose output allocation is inside the timed region; it exists for the axis rows only because `reduce` returns a scalar for `all`. `typed before` is the old primary row of the unmodified harness, which was this same allocating entry under the `typed` label.
+
+| case | T | typed before (allocating) | typed after (preallocated) | allocating after | raw after | typed/allocating |
+|---|---|---|---|---|---|---|
+| `red_sum_all_8192x4096` | 1 | 7.86 | 7.84 | - | 7.74 | - |
+| `red_sum_all_8192x4096` | 4 | 4.85 | 5.01 | - | 5.32 | - |
+| `red_prod_all_8192x4096` | 1 | 7.72 | 7.86 | - | 8.06 | - |
+| `red_prod_all_8192x4096` | 4 | 4.91 | 4.95 | - | 5.26 | - |
+| `red_max_all_8192x4096` | 1 | 10.02 | 10.03 | - | 7.90 | - |
+| `red_max_all_8192x4096` | 4 | 4.89 | 4.95 | - | 4.90 | - |
+| `red_min_all_8192x4096` | 1 | 9.91 | 10.03 | - | 7.91 | - |
+| `red_min_all_8192x4096` | 4 | 4.87 | 4.89 | - | 4.86 | - |
+| `red_sum_axis0_8192x4096` | 1 | 7.79 | 7.82 | 7.69 | 7.89 | 1.02 |
+| `red_sum_axis0_8192x4096` | 4 | 4.85 | 4.98 | 4.87 | 5.32 | 1.02 |
+| `red_prod_axis0_8192x4096` | 1 | 7.70 | 7.30 | 7.32 | 8.05 | 1.00 |
+| `red_prod_axis0_8192x4096` | 4 | 4.95 | 4.86 | 4.91 | 5.20 | 0.99 |
+| `red_max_axis0_8192x4096` | 1 | 10.03 | 10.00 | 9.96 | 7.41 | 1.00 |
+| `red_max_axis0_8192x4096` | 4 | 4.93 | 5.00 | 5.00 | 4.97 | 1.00 |
+| `red_min_axis0_8192x4096` | 1 | 10.03 | 10.00 | 10.00 | 7.48 | 1.00 |
+| `red_min_axis0_8192x4096` | 4 | 4.98 | 4.94 | 4.93 | 4.89 | 1.00 |
+| `red_sum_axis1_8192x4096` | 1 | 11.20 | 11.85 | 11.95 | 11.03 | 0.99 |
+| `red_sum_axis1_8192x4096` | 4 | 5.41 | 5.47 | 5.45 | 5.62 | 1.00 |
+| `red_prod_axis1_8192x4096` | 1 | 12.00 | 11.29 | 11.35 | 11.00 | 1.00 |
+| `red_prod_axis1_8192x4096` | 4 | 5.49 | 5.53 | 5.49 | 5.61 | 1.01 |
+| `red_max_axis1_8192x4096` | 1 | 20.41 | 17.11 | 17.12 | 12.12 | 1.00 |
+| `red_max_axis1_8192x4096` | 4 | 6.18 | 5.84 | 5.86 | 6.30 | 1.00 |
+| `red_min_axis1_8192x4096` | 1 | 16.44 | 17.11 | 17.06 | 12.11 | 1.00 |
+| `red_min_axis1_8192x4096` | 4 | 5.83 | 5.87 | 5.86 | 6.27 | 1.00 |
+| `red_sum_all_2048x2048` | 1 | 0.75 | 0.73 | - | 0.76 | - |
+| `red_sum_all_2048x2048` | 4 | 0.22 | 0.22 | - | 0.22 | - |
+| `red_prod_all_2048x2048` | 1 | 0.70 | 0.70 | - | 0.77 | - |
+| `red_prod_all_2048x2048` | 4 | 0.20 | 0.20 | - | 0.21 | - |
+| `red_max_all_2048x2048` | 1 | 1.20 | 1.20 | - | 0.78 | - |
+| `red_max_all_2048x2048` | 4 | 0.32 | 0.32 | - | 0.23 | - |
+| `red_min_all_2048x2048` | 1 | 1.20 | 1.20 | - | 0.79 | - |
+| `red_min_all_2048x2048` | 4 | 0.33 | 0.33 | - | 0.23 | - |
+| `red_sum_axis0_2048x2048` | 1 | 0.80 | 0.80 | 0.80 | 0.69 | 1.00 |
+| `red_sum_axis0_2048x2048` | 4 | 0.22 | 0.23 | 0.23 | 0.21 | 0.98 |
+| `red_prod_axis0_2048x2048` | 1 | 0.73 | 0.73 | 0.75 | 0.73 | 0.98 |
+| `red_prod_axis0_2048x2048` | 4 | 0.21 | 0.21 | 0.21 | 0.20 | 1.02 |
+| `red_max_axis0_2048x2048` | 1 | 1.30 | 1.28 | 1.28 | 0.76 | 1.00 |
+| `red_max_axis0_2048x2048` | 4 | 0.34 | 0.34 | 0.34 | 0.23 | 1.00 |
+| `red_min_axis0_2048x2048` | 1 | 1.30 | 1.28 | 1.29 | 0.76 | 0.99 |
+| `red_min_axis0_2048x2048` | 4 | 0.35 | 0.34 | 0.34 | 0.23 | 1.01 |
+| `red_sum_axis1_2048x2048` | 1 | 1.48 | 1.62 | 1.62 | 1.04 | 1.00 |
+| `red_sum_axis1_2048x2048` | 4 | 0.47 | 0.46 | 0.46 | 0.54 | 0.99 |
+| `red_prod_axis1_2048x2048` | 1 | 1.58 | 1.54 | 1.55 | 1.06 | 0.99 |
+| `red_prod_axis1_2048x2048` | 4 | 0.47 | 0.48 | 0.48 | 0.56 | 0.98 |
+| `red_max_axis1_2048x2048` | 1 | 2.41 | 2.96 | 2.36 | 1.00 | 1.25 |
+| `red_max_axis1_2048x2048` | 4 | 0.66 | 0.67 | 0.70 | 0.57 | 0.97 |
+| `red_min_axis1_2048x2048` | 1 | 2.29 | 2.37 | 2.40 | 1.00 | 0.99 |
+| `red_min_axis1_2048x2048` | 4 | 0.65 | 0.65 | 0.64 | 0.56 | 1.01 |
+
+The `raw` rows run identical code in both binaries and still move by 0.78x to 1.06x (median 1.00x) between the two binaries; 35 of the 48 cells stay within 5%, and the wider ones are the column-strided `axis1` 8192x4096 cells, where the address and huge-page placement of the 268 MB source array dominates. So both the server noise and that placement, not the allocation, are the resolution of the before/after columns.
+In the 32 axis cells that carry both rows, the same run's `typed`/`allocating` ratio has median 1.00x, with 31 cells within 5% of 1.00 and the rest scattered between 0.97x and 1.25x in both directions where the co-tenant load hit one of the two rows. The removed work is one 16-64 KiB allocation against a kernel of 0.2-17 ms, so the allocation is below this host's measurement resolution; the change fixes what the row means, not its speed.
+
+The earlier tables above were measured on an Apple M5 Max against strided-rs `c1c14a6` and `2b66201`, and their raw CSVs were never retained (`data/results/` is gitignored), so their typed axis-reduction numbers cannot be regenerated here. Those numbers are this table's `allocating` rows: the old harness timed the allocating entry under the `typed` label.
+<!-- END generated: typed-reduce-alloc -->

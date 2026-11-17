@@ -5,9 +5,10 @@
 //! raw memcpy/loop) at an enforced thread count. The `replay_*` cases
 //! (strided-rs#365) compare the plan-free `replay_copy_raw` entries with a
 //! compiled `CopyPlan` on the same caller-fused layout. Setup, allocation, descriptor
-//! construction and correctness checks are outside timed regions. The typed
-//! `reduce_axis` API allocates its result, so that allocation is inside its
-//! timed region by construction of the API.
+//! construction and correctness checks are outside timed regions. The typed axis
+//! rows write into a destination allocated in prepare (`reduce_axis_into`); the
+//! allocating `reduce_axis` entry is kept as the separate `allocating` row, whose
+//! output allocation is inside its timed region by construction of the API.
 //!
 //! Usage: `kernel_scaling --threads N [--time]`. Without `--time` every case is
 //! checked once and nothing is timed. With `--time` the CSV
@@ -28,11 +29,12 @@ use std::{
 use strided_kernel::{
     erased_clamp_into_uninit, erased_map_into, erased_map_into_uninit, erased_select_into_uninit,
     erased_zip_into, erased_zip_into_uninit, map_into, mul_into, reduce, reduce_axis,
-    zip_map2_into, zip_map3_into, ConcatenatePlan, DynamicSlicePlan, ErasedConcatenatePlan,
-    ErasedDynamicSlicePlan, ErasedMapOp, ErasedPadPlan, ErasedRawStridedMut, ErasedRawStridedPtr,
-    ErasedRawStridedRef, ErasedRawStridedUninitMut, ErasedReducePlan, ErasedReversePlan,
-    ErasedSlicePlan, ErasedZipOp, Exec, Pool, KernelDType, KernelStorageElement, PadPlan,
-    RawStridedMut, RawStridedRef, ReduceOp, ReversePlan, SlicePlan, StridedView, StridedViewMut,
+    reduce_axis_into, zip_map2_into, zip_map3_into, ConcatenatePlan, DynamicSlicePlan,
+    ErasedConcatenatePlan, ErasedDynamicSlicePlan, ErasedMapOp, ErasedPadPlan, ErasedRawStridedMut,
+    ErasedRawStridedPtr, ErasedRawStridedRef, ErasedRawStridedUninitMut, ErasedReducePlan,
+    ErasedReversePlan, ErasedSlicePlan, ErasedZipOp, Exec, Pool, KernelDType, KernelStorageElement,
+    PadPlan, RawStridedMut, RawStridedRef, ReduceOp, ReversePlan, SlicePlan, StridedView,
+    StridedViewMut,
 };
 use strided_kernel::{replay_copy_raw, replay_copy_raw_uninit, CopyPlan};
 
@@ -1113,23 +1115,46 @@ fn bench_reduce(cfg: &Cfg, red: Red, axes: Axes, rows0: usize, cols0: usize) {
     }
     check("raw", &out);
 
-    // typed
+    // typed, destination allocated in prepare so the timed region holds no
+    // output allocation
+    let mut typed_out = vec![f64::NAN; out_len];
     {
         let av: StridedView<f64> = StridedView::new(&a, &dims, &strides, 0).unwrap();
-        let mut last = Vec::new();
-        cfg.measure(&case, "typed", || {
-            let res = { match axes {
-                Axes::All => vec![reduce(black_box(&av), |x| x, move |p, q| red.apply(p, q), red.init(), cfg.exec()).unwrap()],
-                Axes::Axis0 | Axes::Axis1 => {
-                    let axis = if axes == Axes::Axis0 { 0 } else { 1 };
-                    let arr = reduce_axis(black_box(&av), axis, |x| x, move |p, q| red.apply(p, q), red.init(), cfg.exec())
-                        .unwrap();
-                    arr.into_data()
+        let dest_dims = [out_len];
+        let dest_strides = [1isize];
+        {
+            let mut dest = StridedViewMut::new(&mut typed_out, &dest_dims, &dest_strides, 0).unwrap();
+            cfg.measure(&case, "typed", || {
+                match axes {
+                    Axes::All => {
+                        let f = move |p, q| red.apply(p, q);
+                        let r = reduce(black_box(&av), |x| x, f, red.init(), cfg.exec()).unwrap();
+                        dest.set(&[0], r);
+                    }
+                    Axes::Axis0 | Axes::Axis1 => {
+                        let axis = if axes == Axes::Axis0 { 0 } else { 1 };
+                        let f = move |p, q| red.apply(p, q);
+                        reduce_axis_into(&mut dest, black_box(&av), axis, |x| x, f, red.init(), cfg.exec())
+                            .unwrap();
+                    }
                 }
-            } };
-            last = black_box(res);
-        });
-        check("typed", &last);
+                black_box(&mut dest);
+            });
+        }
+        check("typed", &typed_out);
+
+        // allocating comparison: `reduce_axis` owns its output, so the allocation
+        // is inside the timed region. Only the axis rows have such an entry.
+        if axes != Axes::All {
+            let axis = if axes == Axes::Axis0 { 0 } else { 1 };
+            let mut last = Vec::new();
+            cfg.measure(&case, "allocating", || {
+                let f = move |p, q| red.apply(p, q);
+                let arr = reduce_axis(black_box(&av), axis, |x| x, f, red.init(), cfg.exec()).unwrap();
+                last = black_box(arr.into_data());
+            });
+            check("allocating", &last);
+        }
     }
 
     // erased plan

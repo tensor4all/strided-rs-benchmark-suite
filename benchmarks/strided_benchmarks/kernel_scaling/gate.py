@@ -30,6 +30,9 @@ import os
 import sys
 from collections import defaultdict
 
+# `allocating` (typed `reduce_axis` with a fresh output) is deliberately not
+# gated here: its output allocation is part of what it measures, so any ratio
+# against `typed` or `raw` would report the row's semantics, not a kernel.
 STRIDED = ("typed", "erased", "erased_uninit", "mul_into", "zip_map2_into", "replay", "replay_uninit")
 RAW = "raw"
 
